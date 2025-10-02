@@ -7,18 +7,20 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; background: #f8f9fa; }
     h1 { color: #2c3e50; text-align: center; }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 1400px; margin: 0 auto; }
     .controls { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
     table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
-    th, td { padding: 12px; text-align: center; border: 1px solid #dee2e6; }
+    th, td { padding: 10px; text-align: center; border: 1px solid #dee2e6; font-size: 0.9em; }
     th { background: #e9ecef; }
-    select { width: 100%; padding: 6px; border-radius: 4px; }
-    button { background: #198754; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px; }
+    select { width: 100%; padding: 5px; border-radius: 4px; font-size: 0.9em; }
+    button { background: #198754; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; margin: 4px; font-size: 0.95em; }
     button:hover { background: #157347; }
-    .day-cell { min-width: 150px; }
+    .day-cell { min-width: 120px; }
+    .save-section { text-align: center; margin-top: 20px; }
     @media (max-width: 768px) {
-      .day-cell { min-width: 120px; font-size: 0.9em; }
-      select { font-size: 0.85em; }
+      .day-cell { min-width: 100px; font-size: 0.85em; }
+      select { font-size: 0.8em; }
+      th, td { padding: 6px; }
     }
   </style>
 </head>
@@ -51,7 +53,8 @@
 
     <div id="calendario"></div>
 
-    <div style="text-align: center; margin-top: 20px;">
+    <div class="save-section">
+      <button onclick="guardarMenu()">💾 Guardar menú</button>
       <button onclick="exportarMenuMensual()">📥 Exportar menú mensual a Excel</button>
     </div>
   </div>
@@ -59,62 +62,66 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <script>
     let platos = [];
-    let menuMensual = {}; // { "2024-09-02": { primer: "...", segundo: "...", postre: "..." }, ... }
+    let menuMensual = {};
 
-    // Cargar platos al iniciar
     fetch('/api/platos')
       .then(res => res.json())
       .then(data => {
         platos = data.platos;
-        document.getElementById('anio').value = new Date().getFullYear();
+        const anioActual = new Date().getFullYear();
+        document.getElementById('anio').value = anioActual;
         generarCalendario();
       });
 
-    // Clasificar platos
+    // 🔹 NUEVO: Clasificación con acompañamientos
     function clasificarPlatos() {
-      const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|arroz|verduras|guiso|puré/i.test(p.nombre);
+      const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|guiso|puré|verduras/i.test(p.nombre);
       const esPostre = p => /postre|fruta|yogur|manzana|pera|plátano|naranja|uva|melón|kiwi|mandarina/i.test(p.nombre);
+      const esAcompanamiento = p => /patatas|arroz|ensalada|verdura cocida|zanahoria|puré|ensaladilla/i.test(p.nombre.toLowerCase());
       
       const primeros = platos.filter(esPrimer);
       const postres = platos.filter(esPostre);
-      const segundos = platos.filter(p => !esPrimer(p) && !esPostre(p));
+      const acompanamientos = platos.filter(esAcompanamiento);
+      // Segundos = todo lo que no sea primero, postre ni acompañamiento
+      const segundos = platos.filter(p => !esPrimer(p) && !esPostre(p) && !esAcompanamiento(p));
       
-      return { primeros, segundos, postres };
+      return { primeros, segundos, acompanamientos, postres };
     }
 
-    // Generar calendario del mes
     function generarCalendario() {
       const mes = parseInt(document.getElementById('mes').value);
       const anio = parseInt(document.getElementById('anio').value);
-      const { primeros, segundos, postres } = clasificarPlatos();
+      const clave = `menu_${anio}_${mes}`;
 
-      // Limpiar menú actual
-      menuMensual = {};
+      const guardado = localStorage.getItem(clave);
+      if (guardado) {
+        try {
+          menuMensual = JSON.parse(guardado);
+        } catch (e) {
+          menuMensual = {};
+        }
+      } else {
+        menuMensual = {};
+      }
 
-      // Crear tabla
-      let html = `<table>
-        <thead>
-          <tr>
-            <th>Día</th>
-            <th>Primer plato</th>
-            <th>Segundo plato</th>
-            <th>Postre</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      const { primeros, segundos, acompanamientos, postres } = clasificarPlatos();
+      let html = `<table><thead><tr>
+        <th>Día</th>
+        <th>1º Plato</th>
+        <th>2º Plato</th>
+        <th>Acompañamiento</th>
+        <th>Postre</th>
+      </tr></thead><tbody>`;
 
-      // Obtener primer día del mes
       const primerDia = new Date(anio, mes, 1);
       const ultimoDia = new Date(anio, mes + 1, 0);
 
       for (let d = primerDia.getDate(); d <= ultimoDia.getDate(); d++) {
         const fecha = new Date(anio, mes, d);
-        const diaSemana = fecha.getDay(); // 0 = dom, 1 = lun, ..., 5 = vie, 6 = sáb
-
-        // Solo lunes a viernes
+        const diaSemana = fecha.getDay();
         if (diaSemana >= 1 && diaSemana <= 5) {
-          const fechaStr = fecha.toISOString().split('T')[0]; // "2024-09-02"
-          const menuDia = menuMensual[fechaStr] || { primer: "", segundo: "", postre: "" };
+          const fechaStr = fecha.toISOString().split('T')[0];
+          const menuDia = menuMensual[fechaStr] || { primer: "", segundo: "", acompanamiento: "", postre: "" };
 
           html += `
             <tr>
@@ -132,6 +139,12 @@
                 </select>
               </td>
               <td>
+                <select onchange="actualizarMenu('${fechaStr}', 'acompanamiento', this.value)">
+                  <option value="">-- Opcional --</option>
+                  ${acompanamientos.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.acompanamiento ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                </select>
+              </td>
+              <td>
                 <select onchange="actualizarMenu('${fechaStr}', 'postre', this.value)">
                   <option value="">-- Seleccionar --</option>
                   ${postres.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.postre ? 'selected' : ''}>${p.nombre}</option>`).join('')}
@@ -146,15 +159,27 @@
     }
 
     function actualizarMenu(fecha, tipo, valor) {
-      if (!menuMensual[fecha]) menuMensual[fecha] = { primer: "", segundo: "", postre: "" };
+      if (!menuMensual[fecha]) menuMensual[fecha] = { primer: "", segundo: "", acompanamiento: "", postre: "" };
       menuMensual[fecha][tipo] = valor;
     }
 
+    function guardarMenu() {
+      const mes = document.getElementById('mes').value;
+      const anio = document.getElementById('anio').value;
+      const clave = `menu_${anio}_${mes}`;
+      localStorage.setItem(clave, JSON.stringify(menuMensual));
+      alert(`✅ Menú de ${anio}-${String(parseInt(mes)+1).padStart(2,'0')} guardado.`);
+    }
+
     function exportarMenuMensual() {
-      const { primeros, segundos, postres } = clasificarPlatos();
-      
-      // Crear array para Excel
-      const data = [["Fecha", "Día", "1º Plato", "2º Plato", "Postre", "Alérgenos 1º", "Alérgenos 2º", "Alérgenos Postre", "Gramaje total (g)"]];
+      const { primeros, segundos, acompanamientos, postres } = clasificarPlatos();
+      const todos = [...primeros, ...segundos, ...acompanamientos, ...postres];
+      const getPlato = nombre => todos.find(p => p.nombre === nombre);
+
+      const data = [
+        ["Fecha", "Día", "1º Plato", "2º Plato", "Acompañamiento", "Postre", 
+         "Alérgenos 1º", "Alérgenos 2º", "Alérgenos Acomp.", "Alérgenos Postre", "Gramaje total (g)"]
+      ];
       
       Object.keys(menuMensual).forEach(fecha => {
         const menu = menuMensual[fecha];
@@ -162,28 +187,30 @@
 
         const fechaObj = new Date(fecha);
         const diaSemana = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][fechaObj.getDay()];
-
-        // Buscar alérgenos y gramaje
-        const getPlato = nombre => [...primeros, ...segundos, ...postres].find(p => p.nombre === nombre);
         
         const p1 = getPlato(menu.primer);
         const p2 = getPlato(menu.segundo);
+        const pA = getPlato(menu.acompanamiento);
         const p3 = getPlato(menu.postre);
 
         const alerg1 = p1?.alergenos?.join(", ") || "";
         const alerg2 = p2?.alergenos?.join(", ") || "";
+        const alergA = pA?.alergenos?.join(", ") || "";
         const alerg3 = p3?.alergenos?.join(", ") || "";
         
-        const gramos = (p1?.gramos_racion || 0) + (p2?.gramos_racion || 0) + (p3?.gramos_racion || 0);
+        const gramos = (p1?.gramos_racion || 0) + (p2?.gramos_racion || 0) + 
+                       (pA?.gramos_racion || 0) + (p3?.gramos_racion || 0);
 
         data.push([
           fecha,
           diaSemana,
           menu.primer || "",
           menu.segundo || "",
+          menu.acompanamiento || "",
           menu.postre || "",
           alerg1,
           alerg2,
+          alergA,
           alerg3,
           gramos > 0 ? gramos : ""
         ]);
