@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Menú Escolar</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { color: #2c3e50; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .section { background: white; margin: 15px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .plato { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+    .plato:hover { background: #f0f8ff; }
+    .selected { background: #d1ecf1 !important; border-left: 4px solid #0dcaf0; }
+    .menu-preview { background: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 20px; }
+    button { background: #0d6efd; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px; }
+    button:hover { background: #0b5ed7; }
+    @media (max-width: 768px) {
+      .cols { flex-direction: column; }
+    }
+    .cols { display: flex; gap: 20px; }
+    .col { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍽️ Generador de Menús Escolares</h1>
+
+    <div class="section">
+      <h2>Selecciona tu menú</h2>
+      <div class="cols">
+        <div class="col">
+          <h3>Primeros platos</h3>
+          <div id="primeros"></div>
+        </div>
+        <div class="col">
+          <h3>Segundos platos</h3>
+          <div id="segundos"></div>
+        </div>
+        <div class="col">
+          <h3>Postres</h3>
+          <div id="postres"></div>
+        </div>
+      </div>
+
+      <div class="menu-preview" id="preview">
+        <h3>Menú seleccionado</h3>
+        <p><strong>1º:</strong> <span id="sel-primer">—</span></p>
+        <p><strong>2º:</strong> <span id="sel-segundo">—</span></p>
+        <p><strong>Postre:</strong> <span id="sel-postre">—</span></p>
+      </div>
+
+      <button onclick="exportarMenu()">📥 Exportar menú a Excel</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <script>
+    let platos = [];
+    let menu = { primer: null, segundo: null, postre: null };
+
+    // Cargar platos desde la API
+    fetch('/api/platos')
+      .then(res => res.json())
+      .then(data => {
+        platos = data.platos;
+        renderPlatos();
+      })
+      .catch(err => {
+        console.error('Error al cargar platos:', err);
+        document.body.innerHTML += '<p style="color:red">❌ Error al cargar los platos.</p>';
+      });
+
+    function renderPlatos() {
+      const primeros = document.getElementById('primeros');
+      const segundos = document.getElementById('segundos');
+      const postres = document.getElementById('postres');
+
+      // Agrupar (asumimos que el tipo está en el nombre o lo inferimos por alérgenos/gramaje)
+      // Por ahora, usamos una regla simple: si tiene "postre" en nombre → postre, etc.
+      // Más adelante puedes añadir un campo "tipo" en tus fichas.
+      const primerosList = platos.filter(p => /lentejas|alubias|sopa|crema|pasta|arroz|verduras/i.test(p.nombre));
+      const segundosList = platos.filter(p => !primerosList.includes(p) && !/postre|fruta|yogur|manzana|pera|plátano|naranja/i.test(p.nombre));
+      const postresList = platos.filter(p => /postre|fruta|yogur|manzana|pera|plátano|naranja/i.test(p.nombre));
+
+      primeros.innerHTML = primerosList.map(p => `<div class="plato" onclick="seleccionar('primer', ${p.nombre ? JSON.stringify(p.nombre) : 'null'})">${p.nombre}</div>`).join('');
+      segundos.innerHTML = segundosList.map(p => `<div class="plato" onclick="seleccionar('segundo', ${p.nombre ? JSON.stringify(p.nombre) : 'null'})">${p.nombre}</div>`).join('');
+      postres.innerHTML = postresList.map(p => `<div class="plato" onclick="seleccionar('postre', ${p.nombre ? JSON.stringify(p.nombre) : 'null'})">${p.nombre}</div>`).join('');
+    }
+
+    function seleccionar(tipo, nombre) {
+      menu[tipo] = nombre;
+      document.getElementById(`sel-${tipo}`).textContent = nombre || '—';
+      
+      // Resaltar visualmente (opcional)
+      document.querySelectorAll('.plato').forEach(el => el.classList.remove('selected'));
+      const selectedEl = Array.from(document.querySelectorAll('.plato')).find(el => el.textContent === nombre);
+      if (selectedEl) selectedEl.classList.add('selected');
+    }
+
+    function exportarMenu() {
+      if (!menu.primer && !menu.segundo && !menu.postre) {
+        alert('Selecciona al menos un plato.');
+        return;
+      }
+
+      // Datos para el Excel
+      const data = [
+        ["Tipo", "Nombre del plato", "Alérgenos", "Gramaje (g)", "Kcal totales", "Proteínas (g)"],
+        ["1º", menu.primer || "", ...getPlatoData(menu.primer)],
+        ["2º", menu.segundo || "", ...getPlatoData(menu.segundo)],
+        ["Postre", menu.postre || "", ...getPlatoData(menu.postre)]
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Menú");
+      XLSX.writeFile(wb, `menu_escolar_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function getPlatoData(nombre) {
+      if (!nombre) return ["", "", "", ""];
+      const p = platos.find(pl => pl.nombre === nombre);
+      if (!p) return ["", "", "", ""];
+      return [
+        p.alergenos.join(", ") || "Ninguno",
+        p.gramos_racion || "",
+        p.nutricion?.kcal_totales || "",
+        p.nutricion?.proteinas_totales || ""
+      ];
+    }
+  </script>
+</body>
+</html>
