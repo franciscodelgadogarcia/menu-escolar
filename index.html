@@ -3,131 +3,204 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Menú Escolar</title>
+  <title>Menú Escolar Mensual</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
-    h1 { color: #2c3e50; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f8f9fa; }
+    h1 { color: #2c3e50; text-align: center; }
     .container { max-width: 1200px; margin: 0 auto; }
-    .section { background: white; margin: 15px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .plato { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
-    .plato:hover { background: #f0f8ff; }
-    .selected { background: #d1ecf1 !important; border-left: 4px solid #0dcaf0; }
-    .menu-preview { background: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 20px; }
-    button { background: #0d6efd; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px; }
-    button:hover { background: #0b5ed7; }
+    .controls { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+    table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
+    th, td { padding: 12px; text-align: center; border: 1px solid #dee2e6; }
+    th { background: #e9ecef; }
+    select { width: 100%; padding: 6px; border-radius: 4px; }
+    button { background: #198754; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 15px; }
+    button:hover { background: #157347; }
+    .day-cell { min-width: 150px; }
     @media (max-width: 768px) {
-      .cols { flex-direction: column; }
+      .day-cell { min-width: 120px; font-size: 0.9em; }
+      select { font-size: 0.85em; }
     }
-    .cols { display: flex; gap: 20px; }
-    .col { flex: 1; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🍽️ Generador de Menús Escolares</h1>
+    <h1>📅 Generador de Menús Escolares Mensuales</h1>
 
-    <div class="section">
-      <h2>Selecciona tu menú</h2>
-      <div class="cols">
-        <div class="col">
-          <h3>Primeros platos</h3>
-          <div id="primeros"></div>
-        </div>
-        <div class="col">
-          <h3>Segundos platos</h3>
-          <div id="segundos"></div>
-        </div>
-        <div class="col">
-          <h3>Postres</h3>
-          <div id="postres"></div>
-        </div>
-      </div>
+    <div class="controls">
+      <label for="mes">Mes:</label>
+      <select id="mes">
+        <option value="0">Enero</option>
+        <option value="1">Febrero</option>
+        <option value="2">Marzo</option>
+        <option value="3">Abril</option>
+        <option value="4">Mayo</option>
+        <option value="5">Junio</option>
+        <option value="6">Julio</option>
+        <option value="7">Agosto</option>
+        <option value="8">Septiembre</option>
+        <option value="9">Octubre</option>
+        <option value="10">Noviembre</option>
+        <option value="11">Diciembre</option>
+      </select>
 
-      <div class="menu-preview" id="preview">
-        <h3>Menú seleccionado</h3>
-        <p><strong>1º:</strong> <span id="sel-primer">—</span></p>
-        <p><strong>2º:</strong> <span id="sel-segundo">—</span></p>
-        <p><strong>Postre:</strong> <span id="sel-postre">—</span></p>
-      </div>
+      <label for="anio">Año:</label>
+      <input type="number" id="anio" value="2024" min="2020" max="2030">
 
-      <button onclick="exportarMenu()">📥 Exportar menú a Excel</button>
+      <button onclick="generarCalendario()">Generar calendario</button>
+    </div>
+
+    <div id="calendario"></div>
+
+    <div style="text-align: center; margin-top: 20px;">
+      <button onclick="exportarMenuMensual()">📥 Exportar menú mensual a Excel</button>
     </div>
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <script>
     let platos = [];
-    let menu = { primer: null, segundo: null, postre: null };
+    let menuMensual = {}; // { "2024-09-02": { primer: "...", segundo: "...", postre: "..." }, ... }
 
-    // Cargar platos desde la API
+    // Cargar platos al iniciar
     fetch('/api/platos')
       .then(res => res.json())
       .then(data => {
         platos = data.platos;
-        renderPlatos();
-      })
-      .catch(err => {
-        console.error('Error al cargar platos:', err);
-        document.body.innerHTML += '<p style="color:red">❌ Error al cargar los platos.</p>';
+        document.getElementById('anio').value = new Date().getFullYear();
+        generarCalendario();
       });
 
-    function renderPlatos() {
-      const primeros = document.getElementById('primeros');
-      const segundos = document.getElementById('segundos');
-      const postres = document.getElementById('postres');
-
-      // Agrupar (asumimos que el tipo está en el nombre o lo inferimos por alérgenos/gramaje)
-      // Por ahora, usamos una regla simple: si tiene "postre" en nombre → postre, etc.
-      // Más adelante puedes añadir un campo "tipo" en tus fichas.
-      const primerosList = platos.filter(p => /lentejas|alubias|sopa|crema|pasta|arroz|verduras/i.test(p.nombre));
-      const segundosList = platos.filter(p => !primerosList.includes(p) && !/postre|fruta|yogur|manzana|pera|plátano|naranja/i.test(p.nombre));
-      const postresList = platos.filter(p => /postre|fruta|yogur|manzana|pera|plátano|naranja/i.test(p.nombre));
-
-      primeros.innerHTML = primerosList.map(p => `<div class="plato" onclick="seleccionar('primer', ${p.nombre ? JSON.stringify(p.nombre) : 'null'})">${p.nombre}</div>`).join('');
-      segundos.innerHTML = segundosList.map(p => `<div class="plato" onclick="seleccionar('segundo', ${p.nombre ? JSON.stringify(p.nombre) : 'null'})">${p.nombre}</div>`).join('');
-      postres.innerHTML = postresList.map(p => `<div class="plato" onclick="seleccionar('postre', ${p.nombre ? JSON.stringify(p.nombre) : 'null'})">${p.nombre}</div>`).join('');
-    }
-
-    function seleccionar(tipo, nombre) {
-      menu[tipo] = nombre;
-      document.getElementById(`sel-${tipo}`).textContent = nombre || '—';
+    // Clasificar platos
+    function clasificarPlatos() {
+      const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|arroz|verduras|guiso|puré/i.test(p.nombre);
+      const esPostre = p => /postre|fruta|yogur|manzana|pera|plátano|naranja|uva|melón|kiwi|mandarina/i.test(p.nombre);
       
-      // Resaltar visualmente (opcional)
-      document.querySelectorAll('.plato').forEach(el => el.classList.remove('selected'));
-      const selectedEl = Array.from(document.querySelectorAll('.plato')).find(el => el.textContent === nombre);
-      if (selectedEl) selectedEl.classList.add('selected');
+      const primeros = platos.filter(esPrimer);
+      const postres = platos.filter(esPostre);
+      const segundos = platos.filter(p => !esPrimer(p) && !esPostre(p));
+      
+      return { primeros, segundos, postres };
     }
 
-    function exportarMenu() {
-      if (!menu.primer && !menu.segundo && !menu.postre) {
-        alert('Selecciona al menos un plato.');
+    // Generar calendario del mes
+    function generarCalendario() {
+      const mes = parseInt(document.getElementById('mes').value);
+      const anio = parseInt(document.getElementById('anio').value);
+      const { primeros, segundos, postres } = clasificarPlatos();
+
+      // Limpiar menú actual
+      menuMensual = {};
+
+      // Crear tabla
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Primer plato</th>
+            <th>Segundo plato</th>
+            <th>Postre</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      // Obtener primer día del mes
+      const primerDia = new Date(anio, mes, 1);
+      const ultimoDia = new Date(anio, mes + 1, 0);
+
+      for (let d = primerDia.getDate(); d <= ultimoDia.getDate(); d++) {
+        const fecha = new Date(anio, mes, d);
+        const diaSemana = fecha.getDay(); // 0 = dom, 1 = lun, ..., 5 = vie, 6 = sáb
+
+        // Solo lunes a viernes
+        if (diaSemana >= 1 && diaSemana <= 5) {
+          const fechaStr = fecha.toISOString().split('T')[0]; // "2024-09-02"
+          const menuDia = menuMensual[fechaStr] || { primer: "", segundo: "", postre: "" };
+
+          html += `
+            <tr>
+              <td class="day-cell">${d} (${['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie'][diaSemana]})</td>
+              <td>
+                <select onchange="actualizarMenu('${fechaStr}', 'primer', this.value)">
+                  <option value="">-- Seleccionar --</option>
+                  ${primeros.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.primer ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                </select>
+              </td>
+              <td>
+                <select onchange="actualizarMenu('${fechaStr}', 'segundo', this.value)">
+                  <option value="">-- Seleccionar --</option>
+                  ${segundos.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.segundo ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                </select>
+              </td>
+              <td>
+                <select onchange="actualizarMenu('${fechaStr}', 'postre', this.value)">
+                  <option value="">-- Seleccionar --</option>
+                  ${postres.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.postre ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                </select>
+              </td>
+            </tr>`;
+        }
+      }
+
+      html += `</tbody></table>`;
+      document.getElementById('calendario').innerHTML = html;
+    }
+
+    function actualizarMenu(fecha, tipo, valor) {
+      if (!menuMensual[fecha]) menuMensual[fecha] = { primer: "", segundo: "", postre: "" };
+      menuMensual[fecha][tipo] = valor;
+    }
+
+    function exportarMenuMensual() {
+      const { primeros, segundos, postres } = clasificarPlatos();
+      
+      // Crear array para Excel
+      const data = [["Fecha", "Día", "1º Plato", "2º Plato", "Postre", "Alérgenos 1º", "Alérgenos 2º", "Alérgenos Postre", "Gramaje total (g)"]];
+      
+      Object.keys(menuMensual).forEach(fecha => {
+        const menu = menuMensual[fecha];
+        if (!menu.primer && !menu.segundo && !menu.postre) return;
+
+        const fechaObj = new Date(fecha);
+        const diaSemana = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][fechaObj.getDay()];
+
+        // Buscar alérgenos y gramaje
+        const getPlato = nombre => [...primeros, ...segundos, ...postres].find(p => p.nombre === nombre);
+        
+        const p1 = getPlato(menu.primer);
+        const p2 = getPlato(menu.segundo);
+        const p3 = getPlato(menu.postre);
+
+        const alerg1 = p1?.alergenos?.join(", ") || "";
+        const alerg2 = p2?.alergenos?.join(", ") || "";
+        const alerg3 = p3?.alergenos?.join(", ") || "";
+        
+        const gramos = (p1?.gramos_racion || 0) + (p2?.gramos_racion || 0) + (p3?.gramos_racion || 0);
+
+        data.push([
+          fecha,
+          diaSemana,
+          menu.primer || "",
+          menu.segundo || "",
+          menu.postre || "",
+          alerg1,
+          alerg2,
+          alerg3,
+          gramos > 0 ? gramos : ""
+        ]);
+      });
+
+      if (data.length === 1) {
+        alert("No hay menú seleccionado para exportar.");
         return;
       }
 
-      // Datos para el Excel
-      const data = [
-        ["Tipo", "Nombre del plato", "Alérgenos", "Gramaje (g)", "Kcal totales", "Proteínas (g)"],
-        ["1º", menu.primer || "", ...getPlatoData(menu.primer)],
-        ["2º", menu.segundo || "", ...getPlatoData(menu.segundo)],
-        ["Postre", menu.postre || "", ...getPlatoData(menu.postre)]
-      ];
-
       const ws = XLSX.utils.aoa_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Menú");
-      XLSX.writeFile(wb, `menu_escolar_${new Date().toISOString().slice(0,10)}.xlsx`);
-    }
-
-    function getPlatoData(nombre) {
-      if (!nombre) return ["", "", "", ""];
-      const p = platos.find(pl => pl.nombre === nombre);
-      if (!p) return ["", "", "", ""];
-      return [
-        p.alergenos.join(", ") || "Ninguno",
-        p.gramos_racion || "",
-        p.nutricion?.kcal_totales || "",
-        p.nutricion?.proteinas_totales || ""
-      ];
+      XLSX.utils.book_append_sheet(wb, ws, "Menú Mensual");
+      const mes = document.getElementById('mes').value;
+      const anio = document.getElementById('anio').value;
+      const nombreMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mes];
+      XLSX.writeFile(wb, `menu_escolar_${nombreMes}_${anio}.xlsx`);
     }
   </script>
 </body>
