@@ -3,111 +3,104 @@ import os
 from openpyxl import load_workbook
 
 app = Flask(__name__)
-
-# Lista de platos (se llenará al iniciar)
 PLATOS = []
 
 def leer_ficha_tecnica(ruta_excel):
-    wb = load_workbook(ruta_excel)
+    wb = load_workbook(ruta_excel, data_only=True)
     ws = wb.active
 
-    # Nombre del plato (celda A7)
-    nombre = ws["A7"].value or ""
+    # 1. Nombre del plato (A7)
+    nombre = str(ws["A7"].value).strip() if ws["A7"].value else ""
 
-    # Ingredientes (celda A10)
-    ingredientes = ws["A10"].value or ""
+    # 2. Composición / ingredientes descriptivos (A10)
+    ingredientes = str(ws["A10"].value).strip() if ws["A10"].value else ""
 
-    # Conservación y distribución (rango A32:C37 → juntamos todo en un string)
-    conservacion = ""
-    for row in ws.iter_rows(min_row=32, max_row=37, min_col=1, max_col=3):
-        for cell in row:
-            if cell.value:
-                conservacion += str(cell.value) + " "
-    conservacion = conservacion.strip()
-
-    # Fecha de caducidad (celda A40:C40)
-    fecha_caducidad = ""
-    for col in range(1, 4):  # A, B, C
-        cell = ws.cell(row=40, column=col)
-        if cell.value:
-            fecha_caducidad += str(cell.value) + " "
-    fecha_caducidad = fecha_caducidad.strip()
-
-    # Datos logísticos (celda A42:C42)
-    datos_logisticos = ""
-    for col in range(1, 4):
-        cell = ws.cell(row=42, column=col)
-        if cell.value:
-            datos_logisticos += str(cell.value) + " "
-    datos_logisticos = datos_logisticos.strip()
-
-    # Gramos totales (celda H44)
-    gramos_racion = ws["H44"].value or 0
-
-    # Alérgenos: buscar "X" en el rango E11:L20
-    alergenos_posibles = [
-        ("Gluten", "E11"),
-        ("Crustáceos", "E12"),
-        ("Huevos", "E13"),
-        ("Pescado", "E14"),
-        ("Cacahuetes", "E15"),
-        ("Soja", "E16"),
-        ("Leche", "E17"),
-        ("Frutos de cáscara", "G11"),
-        ("Apio", "G12"),
-        ("Mostaza", "G13"),
-        ("Sésamo", "G14"),
-        ("Sulfuroso", "G15"),
-        ("Altramuces", "G16"),
-        ("Moluscos", "G17"),
-        ("Legumbres", "E18"),
-        ("Cerdo", "G18"),
-        ("Guisantes", "E19"),
-        ("Otros", "G19")
+    # 3. Alérgenos – columna 1 (E12:E20 = nombres, F12:F20 = "X")
+    alergenos_col1 = [
+        "Gluten", "Crustáceos", "Huevos", "Pescado", "Cacahuetes",
+        "Soja", "Leche", "Legumbres", "Guisantes"
     ]
     alergenos = []
-    for nombre_alerg, celda in alergenos_posibles:
-        if ws[celda].value == "X":
+    for i, nombre_alerg in enumerate(alergenos_col1, start=12):
+        if ws[f"F{i}"].value == "X":
             alergenos.append(nombre_alerg)
 
-    # Información nutricional (rango E45:L46)
-    # Suponemos que la tabla tiene encabezados en E45, y valores en E46
-    nutricion = {}
-    headers = [ws.cell(row=45, column=col).value for col in range(5, 13)]  # E to L
-    values = [ws.cell(row=46, column=col).value for col in range(5, 13)]
-    for i, header in enumerate(headers):
-        if header and i < len(values):
-            nutricion[header] = values[i]
+    # 4. Alérgenos – columna 2 (H12:H20 = nombres, K12:K20 = "X")
+    alergenos_col2 = [
+        "Frutos de cáscara", "Apio", "Mostaza", "Sésamo", "Sulfuroso",
+        "Altramuces", "Moluscos", "Cerdo", "Otros"
+    ]
+    for i, nombre_alerg in enumerate(alergenos_col2, start=12):
+        if ws[f"K{i}"].value == "X":
+            alergenos.append(nombre_alerg)
 
-    # Ingredientes con gramaje (rango E35:H43)
+    # 5. Proceso de elaboración (A24)
+    proceso_elaboracion = str(ws["A24"].value).strip() if ws["A24"].value else ""
+
+    # 6. Etiquetado (A29)
+    etiquetado = str(ws["A29"].value).strip() if ws["A29"].value else ""
+
+    # 7. Conservación y distribución (A32)
+    conservacion = str(ws["A32"].value).strip() if ws["A32"].value else ""
+
+    # 8. Fecha de caducidad (A40)
+    fecha_caducidad = str(ws["A40"].value).strip() if ws["A40"].value else ""
+
+    # 9. Datos logísticos (A42)
+    datos_logisticos = str(ws["A42"].value).strip() if ws["A42"].value else ""
+
+    # 10. Ingredientes con gramaje (E35:E43 = nombre, H35:H43 = gramos)
     ingredientes_gramaje = []
-    for row in ws.iter_rows(min_row=35, max_row=43, min_col=5, max_col=8):  # E to H
-        ingrediente = row[0].value
-        gramos = row[3].value if len(row) > 3 else None
-        if ingrediente and gramos is not None:
-            ingredientes_gramaje.append({
-                "nombre": str(ingrediente),
-                "gramos": float(gramos) if isinstance(gramos, (int, float)) else 0
-            })
+    for fila in range(35, 44):  # filas 35 a 43
+        nombre_ing = ws[f"E{fila}"].value
+        gramos = ws[f"H{fila}"].value
+        if nombre_ing and gramos is not None:
+            try:
+                gramos = float(gramos)
+                ingredientes_gramaje.append({
+                    "nombre": str(nombre_ing).strip(),
+                    "gramos": gramos
+                })
+            except (ValueError, TypeError):
+                pass  # ignorar si no es número
+
+    # 11. Gramaje total (H44)
+    gramos_racion = ws["H44"].value
+    gramos_racion = float(gramos_racion) if isinstance(gramos_racion, (int, float)) else 0
+
+    # 12. Información nutricional
+    nutricion = {
+        "kcal_totales": float(ws["H45"].value) if ws["H45"].value else 0,
+        "kcal_100g": float(ws["H46"].value) if ws["H46"].value else 0,
+        "proteinas_totales": float(ws["I44"].value) if ws["I44"].value else 0,
+        "proteinas_100g": float(ws["I46"].value) if ws["I46"].value else 0,
+        "lipidos_totales": float(ws["J44"].value) if ws["J44"].value else 0,
+        "lipidos_100g": float(ws["J46"].value) if ws["J46"].value else 0,
+        "hc_totales": float(ws["K44"].value) if ws["K44"].value else 0,
+        "hc_100g": float(ws["K46"].value) if ws["K46"].value else 0,
+        "fibra_totales": float(ws["L44"].value) if ws["L44"].value else 0,
+        "fibra_100g": float(ws["L46"].value) if ws["L46"].value else 0,
+    }
 
     return {
         "nombre": nombre,
         "ingredientes": ingredientes,
         "alergenos": alergenos,
+        "proceso_elaboracion": proceso_elaboracion,
+        "etiquetado": etiquetado,
         "conservacion": conservacion,
         "fecha_caducidad": fecha_caducidad,
         "datos_logisticos": datos_logisticos,
+        "ingredientes_gramaje": ingredientes_gramaje,
         "gramos_racion": gramos_racion,
-        "nutricion": nutricion,
-        "ingredientes_gramaje": ingredientes_gramaje
+        "nutricion": nutricion
     }
 
-# Al iniciar la app, lee todos los archivos .xlsx en la raíz
 def cargar_platos():
     global PLATOS
     PLATOS = []
     for filename in os.listdir("."):
-        if filename.endswith(".xlsx") and not filename.startswith("platos_"):
+        if filename.endswith(".xlsx"):
             try:
                 plato = leer_ficha_tecnica(filename)
                 plato["archivo"] = filename
@@ -116,7 +109,7 @@ def cargar_platos():
             except Exception as e:
                 print(f"❌ Error al cargar {filename}: {e}")
 
-# Cargar platos al iniciar
+# Cargar al iniciar
 cargar_platos()
 
 @app.route("/")
