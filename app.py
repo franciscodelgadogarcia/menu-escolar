@@ -112,9 +112,11 @@ def cargar_platos():
 # Cargar al iniciar
 cargar_platos()
 
+from flask import send_from_directory
+
 @app.route("/")
 def home():
-    return f"¡Menú escolar online! ✅<br>Platos cargados: {len(PLATOS)}"
+    return send_from_directory(".", "index.html")
 
 @app.route("/api/platos")
 def obtener_platos():
