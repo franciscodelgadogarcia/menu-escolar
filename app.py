@@ -1,13 +1,14 @@
 from flask import Flask, jsonify, send_from_directory
 import os
 import csv
+from openpyxl import load_workbook
 
 app = Flask(__name__)
 PLATOS = []
-BASE_NUTRICIONAL = {}  # { "Patata cocida": { "kcal": 87, "grasas": 0.1, ... }, ... }
+BASE_NUTRICIONAL = {}
 
 # ==============================
-# CARGAR BASE NUTRICIONAL
+# CARGAR BASE NUTRICIONAL (UTF-8)
 # ==============================
 def cargar_base_nutricional():
     global BASE_NUTRICIONAL
@@ -31,6 +32,9 @@ def cargar_base_nutricional():
                     "sal": float(row["Sal_g"])
                 }
         print(f"✅ Base nutricional cargada: {len(BASE_NUTRICIONAL)} ingredientes")
+    except UnicodeDecodeError as e:
+        print(f"❌ Error de codificación en ingredientes.csv: {e}")
+        print("💡 Guarda el archivo como 'CSV UTF-8' desde Excel o LibreOffice.")
     except Exception as e:
         print(f"❌ Error al cargar ingredientes.csv: {e}")
 
@@ -62,27 +66,73 @@ def calcular_nutricion_plato(ingredientes_gramaje):
             total["proteinas"] += nut["proteinas"] * factor
             total["sal"] += nut["sal"] * factor
         else:
-            print(f"⚠️ Ingrediente no encontrado en base: '{nombre}'")
+            print(f"⚠️ Ingrediente no encontrado: '{nombre}'")
     
-    # Redondear a 1 decimal
     for k in total:
         total[k] = round(total[k], 1)
     return total
 
 # ==============================
-# CARGAR FICHAS TÉCNICAS
+# LEER FICHA TÉCNICA (CORREGIDO)
 # ==============================
 def leer_ficha_tecnica(ruta_excel):
-    from openpyxl import load_workbook
     wb = load_workbook(ruta_excel, data_only=True)
     ws = wb.active
 
-    # ... (tu código actual de extracción) ...
-    # [Mantén exactamente el mismo código que ya tienes para extraer nombre, ingredientes_gramaje, etc.]
+    # 1. Nombre del plato (A7)
+    nombre = str(ws["A7"].value).strip() if ws["A7"].value else ""
 
-    # Al final, añade el cálculo nutricional
+    # 2. Composición / ingredientes (A10)
+    ingredientes = str(ws["A10"].value).strip() if ws["A10"].value else ""
+
+    # 3. Alérgenos – columna 1 (F12:F20)
+    alergenos_col1 = [
+        "Gluten", "Crustáceos", "Huevos", "Pescado", "Cacahuetes",
+        "Soja", "Leche", "Legumbres", "Guisantes"
+    ]
+    alergenos = []
+    for i, nombre_alerg in enumerate(alergenos_col1, start=12):
+        if ws[f"F{i}"].value == "X":
+            alergenos.append(nombre_alerg)
+
+    # 4. Alérgenos – columna 2 (K12:K20)
+    alergenos_col2 = [
+        "Frutos de cáscara", "Apio", "Mostaza", "Sésamo", "Sulfuroso",
+        "Altramuces", "Moluscos", "Cerdo", "Otros"
+    ]
+    for i, nombre_alerg in enumerate(alergenos_col2, start=12):
+        if ws[f"K{i}"].value == "X":
+            alergenos.append(nombre_alerg)
+
+    # 5. Otros campos
+    proceso_elaboracion = str(ws["A24"].value).strip() if ws["A24"].value else ""
+    etiquetado = str(ws["A29"].value).strip() if ws["A29"].value else ""
+    conservacion = str(ws["A32"].value).strip() if ws["A32"].value else ""
+    fecha_caducidad = str(ws["A40"].value).strip() if ws["A40"].value else ""
+    datos_logisticos = str(ws["A42"].value).strip() if ws["A42"].value else ""
+
+    # 6. Ingredientes con gramaje (E35:E43 = nombre, H35:H43 = gramos)
+    ingredientes_gramaje = []  # ✅ DEFINIDO ANTES DEL BUCLE
+    for fila in range(35, 44):
+        nombre_ing = ws[f"E{fila}"].value
+        gramos = ws[f"H{fila}"].value
+        if nombre_ing and gramos is not None:
+            try:
+                gramos = float(gramos)
+                ingredientes_gramaje.append({
+                    "nombre": str(nombre_ing).strip(),
+                    "gramos": gramos
+                })
+            except (ValueError, TypeError):
+                pass
+
+    # 7. Gramaje total (H44)
+    gramos_racion = ws["H44"].value
+    gramos_racion = float(gramos_racion) if isinstance(gramos_racion, (int, float)) else 0
+
+    # 8. Calcular nutrición
     nutricion = calcular_nutricion_plato(ingredientes_gramaje)
-    
+
     return {
         "nombre": nombre,
         "ingredientes": ingredientes,
@@ -94,9 +144,12 @@ def leer_ficha_tecnica(ruta_excel):
         "datos_logisticos": datos_logisticos,
         "ingredientes_gramaje": ingredientes_gramaje,
         "gramos_racion": gramos_racion,
-        "nutricion": nutricion  # ✅ ¡AHORA ES CALCULADO!
+        "nutricion": nutricion
     }
 
+# ==============================
+# CARGAR TODOS LOS PLATOS
+# ==============================
 def cargar_platos():
     global PLATOS
     PLATOS = []
