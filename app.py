@@ -41,6 +41,47 @@ def cargar_base_nutricional():
 # ==============================
 # CALCULAR NUTRICIÓN DE UN PLATO
 # ==============================
+import unicodedata
+
+def normalizar_texto(texto):
+    """Convierte a minúsculas, elimina tildes y limpia espacios."""
+    if not texto:
+        return ""
+    texto = texto.lower().strip()
+    # Eliminar tildes y caracteres especiales
+    texto = unicodedata.normalize('NFD', texto)
+    texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
+    return texto
+
+def buscar_ingrediente(nombre_ingrediente, base_nutricional):
+    """Busca un ingrediente en la base nutricional con coincidencia flexible."""
+    nombre_norm = normalizar_texto(nombre_ingrediente)
+    
+    # Primero: coincidencia exacta (sin tildes)
+    for nombre_base in base_nutricional:
+        if normalizar_texto(nombre_base) == nombre_norm:
+            return base_nutricional[nombre_base]
+    
+    # Segundo: coincidencia parcial (el nombre del CSV contiene el nombre del ingrediente)
+    for nombre_base in base_nutricional:
+        if nombre_norm in normalizar_texto(nombre_base):
+            return base_nutricional[nombre_base]
+    
+    # Tercero: palabras clave comunes
+    if "aceite" in nombre_norm and "oliva" in nombre_norm:
+        for nombre_base in base_nutricional:
+            if "aceite" in normalizar_texto(nombre_base) and "oliva" in normalizar_texto(nombre_base):
+                return base_nutricional[nombre_base]
+    if "patata" in nombre_norm or "papa" in nombre_norm:
+        for nombre_base in base_nutricional:
+            if "patata" in normalizar_texto(nombre_base):
+                return base_nutricional[nombre_base]
+    if "agua" in nombre_norm:
+        return base_nutricional.get("Agua", None)
+    if "sal" in nombre_norm:
+        return base_nutricional.get("Sal", None)
+    
+    return None
 def calcular_nutricion_plato(ingredientes_gramaje):
     total = {
         "kcal": 0,
@@ -55,8 +96,11 @@ def calcular_nutricion_plato(ingredientes_gramaje):
     for item in ingredientes_gramaje:
         nombre = item["nombre"].strip()
         gramos = item["gramos"]
-        if nombre in BASE_NUTRICIONAL:
-            nut = BASE_NUTRICIONAL[nombre]
+        if gramos <= 0:
+            continue
+            
+        nut = buscar_ingrediente(nombre, BASE_NUTRICIONAL)
+        if nut:
             factor = gramos / 100.0
             total["kcal"] += nut["kcal"] * factor
             total["grasas"] += nut["grasas"] * factor
