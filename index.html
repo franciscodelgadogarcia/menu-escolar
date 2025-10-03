@@ -7,7 +7,7 @@
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; background: #f8f9fa; }
     h1 { color: #2c3e50; text-align: center; }
-    .container { max-width: 1400px; margin: 0 auto; }
+    .container { max-width: 1600px; margin: 0 auto; }
     .controls { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
     table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
     th, td { padding: 10px; text-align: center; border: 1px solid #dee2e6; font-size: 0.9em; }
@@ -73,7 +73,6 @@
         generarCalendario();
       });
 
-    // 🔹 NUEVO: Clasificación con acompañamientos
     function clasificarPlatos() {
       const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|guiso|puré|verduras/i.test(p.nombre);
       const esPostre = p => /postre|fruta|yogur|manzana|pera|plátano|naranja|uva|melón|kiwi|mandarina/i.test(p.nombre);
@@ -82,7 +81,6 @@
       const primeros = platos.filter(esPrimer);
       const postres = platos.filter(esPostre);
       const acompanamientos = platos.filter(esAcompanamiento);
-      // Segundos = todo lo que no sea primero, postre ni acompañamiento
       const segundos = platos.filter(p => !esPrimer(p) && !esPostre(p) && !esAcompanamiento(p));
       
       return { primeros, segundos, acompanamientos, postres };
@@ -178,7 +176,15 @@
 
       const data = [
         ["Fecha", "Día", "1º Plato", "2º Plato", "Acompañamiento", "Postre", 
-         "Alérgenos 1º", "Alérgenos 2º", "Alérgenos Acomp.", "Alérgenos Postre", "Gramaje total (g)"]
+         "Alérgenos 1º", "Alérgenos 2º", "Alérgenos Acomp.", "Alérgenos Postre", 
+         "Gramaje total (g)",
+         "Valor energético (kcal)",
+         "Grasas (g)",
+         "Grasas saturadas (g)",
+         "Hidratos de carbono (g)",
+         "Azúcares (g)",
+         "Proteínas (g)",
+         "Sal (g)"]
       ];
       
       Object.keys(menuMensual).forEach(fecha => {
@@ -201,6 +207,19 @@
         const gramos = (p1?.gramos_racion || 0) + (p2?.gramos_racion || 0) + 
                        (pA?.gramos_racion || 0) + (p3?.gramos_racion || 0);
 
+        const nut1 = p1?.nutricion || {};
+        const nut2 = p2?.nutricion || {};
+        const nutA = pA?.nutricion || {};
+        const nut3 = p3?.nutricion || {};
+
+        const kcal_total = (nut1.kcal || 0) + (nut2.kcal || 0) + (nutA.kcal || 0) + (nut3.kcal || 0);
+        const grasas_total = (nut1.grasas || 0) + (nut2.grasas || 0) + (nutA.grasas || 0) + (nut3.grasas || 0);
+        const grasas_sat_total = (nut1.grasas_saturadas || 0) + (nut2.grasas_saturadas || 0) + (nutA.grasas_saturadas || 0) + (nut3.grasas_saturadas || 0);
+        const hc_total = (nut1.hc || 0) + (nut2.hc || 0) + (nutA.hc || 0) + (nut3.hc || 0);
+        const azucar_total = (nut1.azucar || 0) + (nut2.azucar || 0) + (nutA.azucar || 0) + (nut3.azucar || 0);
+        const proteinas_total = (nut1.proteinas || 0) + (nut2.proteinas || 0) + (nutA.proteinas || 0) + (nut3.proteinas || 0);
+        const sal_total = (nut1.sal || 0) + (nut2.sal || 0) + (nutA.sal || 0) + (nut3.sal || 0);
+
         data.push([
           fecha,
           diaSemana,
@@ -212,7 +231,14 @@
           alerg2,
           alergA,
           alerg3,
-          gramos > 0 ? gramos : ""
+          gramos > 0 ? gramos.toFixed(1) : "",
+          kcal_total.toFixed(1),
+          grasas_total.toFixed(1),
+          grasas_sat_total.toFixed(1),
+          hc_total.toFixed(1),
+          azucar_total.toFixed(1),
+          proteinas_total.toFixed(1),
+          sal_total.toFixed(1)
         ]);
       });
 
