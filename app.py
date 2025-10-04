@@ -8,7 +8,7 @@ app = Flask(__name__)
 PLATOS = []
 
 # ==============================
-# BASE NUTRICIONAL POR DEFECTO (seguridad si el CSV falla)
+# BASE NUTRICIONAL POR DEFECTO
 # ==============================
 BASE_NUTRICIONAL = {
     "agua": {"kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 0},
@@ -17,9 +17,16 @@ BASE_NUTRICIONAL = {
     "patata": {"kcal": 87, "lip": 0.1, "ags": 0, "prot": 2, "hdec": 20, "azucares": 0.8, "vit_a": 0, "vit_c": 12, "vit_d": 0, "ca": 6, "fe": 0.4, "sal": 0.01},
     "zanahoria": {"kcal": 41, "lip": 0.2, "ags": 0, "prot": 0.9, "hdec": 10, "azucares": 4.7, "vit_a": 835, "vit_c": 6, "vit_d": 0, "ca": 33, "fe": 0.3, "sal": 0.07},
     "cebolla": {"kcal": 40, "lip": 0.1, "ags": 0, "prot": 1.1, "hdec": 9.3, "azucares": 4.2, "vit_a": 0, "vit_c": 7, "vit_d": 0, "ca": 23, "fe": 0.2, "sal": 0.01},
-    "ajo": {"kcal": 149, "lip": 0.5, "ags": 0.1, "prot": 6.4, "hdec": 33.1, "azucares": 1, "vit_a": 0, "vit_c": 22, "vit_d": 0, "ca": 181, "fe": 1.7, "sal": 0.02},
-    "pimiento": {"kcal": 31, "lip": 0.3, "ags": 0.1, "prot": 1, "hdec": 6, "azucares": 4.2, "vit_a": 157, "vit_c": 128, "vit_d": 0, "ca": 10, "fe": 0.3, "sal": 0.01},
+    "tomate": {"kcal": 18, "lip": 0.2, "ags": 0, "prot": 0.9, "hdec": 3.9, "azucares": 2.6, "vit_a": 42, "vit_c": 23, "vit_d": 0, "ca": 10, "fe": 0.3, "sal": 0.01},
+    "lechuga": {"kcal": 15, "lip": 0.2, "ags": 0, "prot": 1.3, "hdec": 3.0, "azucares": 1.5, "vit_a": 150, "vit_c": 10, "vit_d": 0, "ca": 30, "fe": 1.0, "sal": 0.01},
+    "maiz": {"kcal": 96, "lip": 1.2, "ags": 0.2, "prot": 3.2, "hdec": 21.0, "azucares": 6.3, "vit_a": 10, "vit_c": 7, "vit_d": 0, "ca": 2, "fe": 0.5, "sal": 0.01},
+    "remolacha": {"kcal": 44, "lip": 0.2, "ags": 0, "prot": 1.7, "hdec": 10.0, "azucares": 8.0, "vit_a": 2, "vit_c": 4, "vit_d": 0, "ca": 16, "fe": 0.8, "sal": 0.05},
+    "aceitunas": {"kcal": 115, "lip": 10.7, "ags": 1.4, "prot": 0.8, "hdec": 6.3, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 88, "fe": 6.3, "sal": 2.5},
     "calabacin": {"kcal": 17, "lip": 0.3, "ags": 0.1, "prot": 1.2, "hdec": 3.1, "azucares": 2.5, "vit_a": 10, "vit_c": 17, "vit_d": 0, "ca": 16, "fe": 0.4, "sal": 0.01},
+    "pimiento": {"kcal": 31, "lip": 0.3, "ags": 0.1, "prot": 1, "hdec": 6, "azucares": 4.2, "vit_a": 157, "vit_c": 128, "vit_d": 0, "ca": 10, "fe": 0.3, "sal": 0.01},
+    "guisantes": {"kcal": 81, "lip": 0.4, "ags": 0.1, "prot": 5.4, "hdec": 14.5, "azucares": 3.3, "vit_a": 20, "vit_c": 12, "vit_d": 0, "ca": 25, "fe": 1.5, "sal": 0.01},
+    "leche": {"kcal": 64, "lip": 3.6, "ags": 2.3, "prot": 3.3, "hdec": 4.8, "azucares": 4.8, "vit_a": 28, "vit_c": 1, "vit_d": 0.1, "ca": 120, "fe": 0.1, "sal": 0.1},
+    "mantequilla": {"kcal": 717, "lip": 81, "ags": 51, "prot": 0.9, "hdec": 0.6, "azucares": 0.6, "vit_a": 200, "vit_c": 0, "vit_d": 1.5, "ca": 24, "fe": 0.1, "sal": 0.1},
     "lentejas": {"kcal": 116, "lip": 0.4, "ags": 0.1, "prot": 9, "hdec": 20, "azucares": 1.8, "vit_a": 2, "vit_c": 2, "vit_d": 0, "ca": 35, "fe": 3.3, "sal": 0.01},
     "alubias": {"kcal": 120, "lip": 0.5, "ags": 0.1, "prot": 8.3, "hdec": 20.8, "azucares": 1.4, "vit_a": 2, "vit_c": 1, "vit_d": 0, "ca": 50, "fe": 2.5, "sal": 0.01},
     "pescado": {"kcal": 100, "lip": 2, "ags": 0.5, "prot": 20, "hdec": 0, "azucares": 0, "vit_a": 10, "vit_c": 0, "vit_d": 0.1, "ca": 15, "fe": 0.4, "sal": 0.1},
@@ -42,9 +49,8 @@ def cargar_base_nutricional():
                 reader = csv.DictReader(f)
                 required_cols = ["Alimento", "E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares", "Vit A (µg)", "Vit C (mg)", "vit D (µg)", "Ca (mg)", "Fe (mg)", "Sal"]
                 if not all(col in reader.fieldnames for col in required_cols):
-                    print("❌ CSV no tiene las columnas requeridas. Usando base por defecto.")
+                    print("❌ CSV no tiene columnas requeridas. Usando base por defecto.")
                     return
-
                 for row in reader:
                     nombre = normalizar_texto(row["Alimento"])
                     if nombre:
@@ -62,68 +68,51 @@ def cargar_base_nutricional():
                             "fe": float(row["Fe (mg)"]),
                             "sal": float(row["Sal"])
                         }
-            print(f"✅ Base nutricional cargada desde CSV: {len(BASE_NUTRICIONAL)} ingredientes")
+            print(f"✅ Base nutricional cargada: {len(BASE_NUTRICIONAL)} ingredientes")
         except Exception as e:
-            print(f"⚠️ Error al cargar ingredientes.csv: {e}. Usando base por defecto.")
+            print(f"⚠️ Error al cargar ingredientes.csv: {e}")
     else:
-        print("⚠️ ingredientes.csv no encontrado. Usando base nutricional por defecto.")
+        print("⚠️ ingredientes.csv no encontrado. Usando base por defecto.")
 
 def buscar_ingrediente(nombre_ing):
     nombre_norm = normalizar_texto(nombre_ing)
     if not nombre_norm:
         return None
-
-    # Búsqueda exacta
     if nombre_norm in BASE_NUTRICIONAL:
         return BASE_NUTRICIONAL[nombre_norm]
-
-    # Búsqueda parcial
     for clave in BASE_NUTRICIONAL:
         if nombre_norm in clave or clave in nombre_norm:
             return BASE_NUTRICIONAL[clave]
-
     # Palabras clave
-    if "agua" in nombre_norm:
-        return BASE_NUTRICIONAL["agua"]
-    if "sal" in nombre_norm:
-        return BASE_NUTRICIONAL["sal"]
-    if "aceite" in nombre_norm and "oliva" in nombre_norm:
-        return BASE_NUTRICIONAL["aceite de oliva"]
-    if "patata" in nombre_norm or "papa" in nombre_norm:
-        return BASE_NUTRICIONAL["patata"]
-    if "zanahoria" in nombre_norm:
-        return BASE_NUTRICIONAL["zanahoria"]
-    if "cebolla" in nombre_norm:
-        return BASE_NUTRICIONAL["cebolla"]
-    if "ajo" in nombre_norm:
-        return BASE_NUTRICIONAL["ajo"]
-    if "pimiento" in nombre_norm:
-        return BASE_NUTRICIONAL["pimiento"]
-    if "calabac" in nombre_norm:
-        return BASE_NUTRICIONAL["calabacin"]
-    if "lenteja" in nombre_norm:
-        return BASE_NUTRICIONAL["lentejas"]
-    if "alubia" in nombre_norm or "judia" in nombre_norm:
-        return BASE_NUTRICIONAL["alubias"]
-    if "pescado" in nombre_norm:
-        return BASE_NUTRICIONAL["pescado"]
-    if "huevo" in nombre_norm:
-        return BASE_NUTRICIONAL["huevos"]
-
+    if "agua" in nombre_norm: return BASE_NUTRICIONAL["agua"]
+    if "sal" in nombre_norm: return BASE_NUTRICIONAL["sal"]
+    if "aceite" in nombre_norm and "oliva" in nombre_norm: return BASE_NUTRICIONAL["aceite de oliva"]
+    if "patata" in nombre_norm or "papa" in nombre_norm: return BASE_NUTRICIONAL["patata"]
+    if "zanahoria" in nombre_norm: return BASE_NUTRICIONAL["zanahoria"]
+    if "cebolla" in nombre_norm: return BASE_NUTRICIONAL["cebolla"]
+    if "tomate" in nombre_norm: return BASE_NUTRICIONAL["tomate"]
+    if "lechuga" in nombre_norm: return BASE_NUTRICIONAL["lechuga"]
+    if "maiz" in nombre_norm: return BASE_NUTRICIONAL["maiz"]
+    if "remolacha" in nombre_norm: return BASE_NUTRICIONAL["remolacha"]
+    if "aceituna" in nombre_norm: return BASE_NUTRICIONAL["aceitunas"]
+    if "calabacin" in nombre_norm: return BASE_NUTRICIONAL["calabacin"]
+    if "pimiento" in nombre_norm: return BASE_NUTRICIONAL["pimiento"]
+    if "guisante" in nombre_norm: return BASE_NUTRICIONAL["guisantes"]
+    if "leche" in nombre_norm: return BASE_NUTRICIONAL["leche"]
+    if "mantequilla" in nombre_norm: return BASE_NUTRICIONAL["mantequilla"]
+    if "lenteja" in nombre_norm: return BASE_NUTRICIONAL["lentejas"]
+    if "alubia" in nombre_norm or "judia" in nombre_norm: return BASE_NUTRICIONAL["alubias"]
+    if "pescado" in nombre_norm: return BASE_NUTRICIONAL["pescado"]
+    if "huevo" in nombre_norm: return BASE_NUTRICIONAL["huevos"]
     print(f"⚠️ Ingrediente no encontrado: '{nombre_ing}'")
     return None
 
 def calcular_nutricion_plato(ingredientes_gramaje):
-    total = {
-        "kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0,
-        "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0,
-        "ca": 0, "fe": 0, "sal": 0
-    }
+    total = {"kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 0}
     for item in ingredientes_gramaje:
         nombre = item["nombre"]
         gramos = item["gramos"]
-        if gramos <= 0:
-            continue
+        if gramos <= 0: continue
         nut = buscar_ingrediente(nombre)
         if nut:
             factor = gramos / 100.0
@@ -168,7 +157,68 @@ def leer_ficha_tecnica(ruta_excel):
             except (ValueError, TypeError):
                 pass
 
-    gramos_racion = float(ws["H44"].value) if isinstance(ws["H44"].value, (int, float)) else 0
+    nombre_norm = normalizar_texto(nombre)
+    nuevo_ingredientes = None
+
+    # ✅ DETECCIÓN DE ACOMPAÑAMIENTOS COMPUESTOS
+    if "lechuga con tomate" in nombre_norm:
+        nuevo_ingredientes = [("Lechuga", 60), ("Tomate", 60)]
+    elif "lechuga con zanahoria" in nombre_norm:
+        nuevo_ingredientes = [("Lechuga", 60), ("Zanahoria", 60)]
+    elif "lechuga con remolacha" in nombre_norm:
+        nuevo_ingredientes = [("Lechuga", 60), ("Remolacha", 60)]
+    elif "lechuga con aceituna" in nombre_norm:
+        nuevo_ingredientes = [("Lechuga", 70), ("Aceitunas", 10)]
+    elif "lechuga con maiz" in nombre_norm:
+        nuevo_ingredientes = [("Lechuga", 60), ("Maíz", 30)]
+    elif "tomate con maiz" in nombre_norm:
+        nuevo_ingredientes = [("Tomate", 70), ("Maíz", 30)]
+    elif "tomate con zanahoria" in nombre_norm:
+        nuevo_ingredientes = [("Tomate", 60), ("Zanahoria", 60)]
+    elif "pure de patata" in nombre_norm:
+        nuevo_ingredientes = [("Patata", 120), ("Leche", 20), ("Mantequilla", 5)]
+    elif "patatas fritas" in nombre_norm:
+        nuevo_ingredientes = [("Patata", 100)]
+    elif "patata cocida" in nombre_norm:
+        nuevo_ingredientes = [("Patata", 120)]
+    elif "patata al horno" in nombre_norm:
+        nuevo_ingredientes = [("Patata", 120), ("Aceite de oliva", 5)]
+    elif "menestra de verdura" in nombre_norm:
+        nuevo_ingredientes = [("Guisantes", 40), ("Zanahoria", 30), ("Maíz", 30)]
+    elif "verduras asadas" in nombre_norm:
+        nuevo_ingredientes = [("Calabacín", 40), ("Pimiento", 40), ("Cebolla", 40), ("Aceite de oliva", 5)]
+
+    # ✅ DETECCIÓN DE POSTRES
+    es_postre = any(term in nombre_norm for term in [
+        "fruta", "yogur", "flan", "natilla", "gelatina", "queso fresco",
+        "manzana", "pera", "plátano", "naranja", "uva", "melón", "sandía",
+        "fresa", "kiwi", "ciruela", "higo", "piña", "mandarina"
+    ])
+
+    if nuevo_ingredientes:
+        ingredientes_gramaje = [{"nombre": n, "gramos": g} for n, g in nuevo_ingredientes]
+        gramos_racion = sum(g for _, g in nuevo_ingredientes)
+    elif es_postre:
+        nuevos_ingredientes = []
+        for item in ingredientes_gramaje:
+            nombre_norm_ing = normalizar_texto(item["nombre"])
+            gramos = item["gramos"]
+            if any(fruta in nombre_norm_ing for fruta in ["manzana", "pera", "plátano", "naranja", "mandarina", "kiwi", "ciruela", "higo"]):
+                gramos = 150.0
+            elif any(fruta in nombre_norm_ing for fruta in ["melón", "sandía", "piña", "fresa", "uva", "frutas"]):
+                gramos = 120.0
+            elif "yogur" in nombre_norm_ing:
+                gramos = 125.0
+            elif "queso fresco" in nombre_norm_ing:
+                gramos = 60.0
+            elif any(postre in nombre_norm_ing for postre in ["flan", "natilla", "gelatina"]):
+                gramos = 120.0
+            nuevos_ingredientes.append({"nombre": item["nombre"], "gramos": gramos})
+        ingredientes_gramaje = nuevos_ingredientes
+        gramos_racion = sum(item["gramos"] for item in ingredientes_gramaje)
+    else:
+        gramos_racion = float(ws["H44"].value) if isinstance(ws["H44"].value, (int, float)) else 0
+
     nutricion = calcular_nutricion_plato(ingredientes_gramaje)
 
     return {
@@ -198,9 +248,6 @@ def cargar_platos():
             except Exception as e:
                 print(f"❌ Error al cargar {filename}: {e}")
 
-# ==============================
-# INICIAR APP
-# ==============================
 cargar_base_nutricional()
 cargar_platos()
 
