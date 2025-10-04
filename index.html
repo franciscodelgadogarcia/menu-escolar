@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Menú Escolar Mensual</title>
+  <title>Menú Escolar - Comunidad de Madrid</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; background: #f8f9fa; }
     h1 { color: #2c3e50; text-align: center; }
@@ -26,7 +26,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>📅 Generador de Menús Escolares Mensuales</h1>
+    <h1>📅 Generador de Menús Escolares - Comunidad de Madrid</h1>
 
     <div class="controls">
       <label for="mes">Mes:</label>
@@ -74,9 +74,9 @@
       });
 
     function clasificarPlatos() {
-      const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|guiso|puré|verduras/i.test(p.nombre);
-      const esPostre = p => /postre|fruta|yogur|manzana|pera|plátano|naranja|uva|melón|kiwi|mandarina/i.test(p.nombre);
-      const esAcompanamiento = p => /patatas|arroz|ensalada|verdura cocida|zanahoria|puré|ensaladilla/i.test(p.nombre.toLowerCase());
+      const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|guiso|puré|verduras/i.test(p.nombre.toLowerCase());
+      const esPostre = p => /fruta|yogur|flan|natilla|gelatina|queso fresco|manzana|pera|plátano|naranja|uva|melón|sandía|fresa|kiwi|ciruela|higo|piña|mandarina/i.test(p.nombre.toLowerCase());
+      const esAcompanamiento = p => /lechuga con|tomate con|pure de patata|patatas fritas|menestra|verduras asadas|patata cocida|patata al horno/i.test(p.nombre.toLowerCase());
       
       const primeros = platos.filter(esPrimer);
       const postres = platos.filter(esPostre);
@@ -178,13 +178,8 @@
         ["Fecha", "Día", "1º Plato", "2º Plato", "Acompañamiento", "Postre", 
          "Alérgenos 1º", "Alérgenos 2º", "Alérgenos Acomp.", "Alérgenos Postre", 
          "Gramaje total (g)",
-         "Valor energético (kcal)",
-         "Grasas (g)",
-         "Grasas saturadas (g)",
-         "Hidratos de carbono (g)",
-         "Azúcares (g)",
-         "Proteínas (g)",
-         "Sal (g)"]
+         "E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares",
+         "Vit A (µg)", "Vit C (mg)", "vit D (µg)", "Ca (mg)", "Fe (mg)", "Sal (g)"]
       ];
       
       Object.keys(menuMensual).forEach(fecha => {
@@ -213,11 +208,16 @@
         const nut3 = p3?.nutricion || {};
 
         const kcal_total = (nut1.kcal || 0) + (nut2.kcal || 0) + (nutA.kcal || 0) + (nut3.kcal || 0);
-        const grasas_total = (nut1.grasas || 0) + (nut2.grasas || 0) + (nutA.grasas || 0) + (nut3.grasas || 0);
-        const grasas_sat_total = (nut1.grasas_saturadas || 0) + (nut2.grasas_saturadas || 0) + (nutA.grasas_saturadas || 0) + (nut3.grasas_saturadas || 0);
-        const hc_total = (nut1.hc || 0) + (nut2.hc || 0) + (nutA.hc || 0) + (nut3.hc || 0);
-        const azucar_total = (nut1.azucar || 0) + (nut2.azucar || 0) + (nutA.azucar || 0) + (nut3.azucar || 0);
-        const proteinas_total = (nut1.proteinas || 0) + (nut2.proteinas || 0) + (nutA.proteinas || 0) + (nut3.proteinas || 0);
+        const lip_total = (nut1.lip || 0) + (nut2.lip || 0) + (nutA.lip || 0) + (nut3.lip || 0);
+        const ags_total = (nut1.ags || 0) + (nut2.ags || 0) + (nutA.ags || 0) + (nut3.ags || 0);
+        const prot_total = (nut1.prot || 0) + (nut2.prot || 0) + (nutA.prot || 0) + (nut3.prot || 0);
+        const hdec_total = (nut1.hdec || 0) + (nut2.hdec || 0) + (nutA.hdec || 0) + (nut3.hdec || 0);
+        const azucares_total = (nut1.azucares || 0) + (nut2.azucares || 0) + (nutA.azucares || 0) + (nut3.azucares || 0);
+        const vit_a_total = (nut1.vit_a || 0) + (nut2.vit_a || 0) + (nutA.vit_a || 0) + (nut3.vit_a || 0);
+        const vit_c_total = (nut1.vit_c || 0) + (nut2.vit_c || 0) + (nutA.vit_c || 0) + (nut3.vit_c || 0);
+        const vit_d_total = (nut1.vit_d || 0) + (nut2.vit_d || 0) + (nutA.vit_d || 0) + (nut3.vit_d || 0);
+        const ca_total = (nut1.ca || 0) + (nut2.ca || 0) + (nutA.ca || 0) + (nut3.ca || 0);
+        const fe_total = (nut1.fe || 0) + (nut2.fe || 0) + (nutA.fe || 0) + (nut3.fe || 0);
         const sal_total = (nut1.sal || 0) + (nut2.sal || 0) + (nutA.sal || 0) + (nut3.sal || 0);
 
         data.push([
@@ -233,11 +233,16 @@
           alerg3,
           gramos > 0 ? gramos.toFixed(1) : "",
           kcal_total.toFixed(1),
-          grasas_total.toFixed(1),
-          grasas_sat_total.toFixed(1),
-          hc_total.toFixed(1),
-          azucar_total.toFixed(1),
-          proteinas_total.toFixed(1),
+          lip_total.toFixed(1),
+          ags_total.toFixed(1),
+          prot_total.toFixed(1),
+          hdec_total.toFixed(1),
+          azucares_total.toFixed(1),
+          vit_a_total.toFixed(1),
+          vit_c_total.toFixed(1),
+          vit_d_total.toFixed(1),
+          ca_total.toFixed(1),
+          fe_total.toFixed(1),
           sal_total.toFixed(1)
         ]);
       });
