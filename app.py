@@ -6,7 +6,25 @@ import unicodedata
 
 app = Flask(__name__)
 PLATOS = []
-BASE_NUTRICIONAL = {}
+
+# ==============================
+# BASE NUTRICIONAL POR DEFECTO (seguridad si el CSV falla)
+# ==============================
+BASE_NUTRICIONAL = {
+    "agua": {"kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 0},
+    "sal": {"kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 100},
+    "aceite de oliva": {"kcal": 884, "lip": 100, "ags": 14, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 0},
+    "patata": {"kcal": 87, "lip": 0.1, "ags": 0, "prot": 2, "hdec": 20, "azucares": 0.8, "vit_a": 0, "vit_c": 12, "vit_d": 0, "ca": 6, "fe": 0.4, "sal": 0.01},
+    "zanahoria": {"kcal": 41, "lip": 0.2, "ags": 0, "prot": 0.9, "hdec": 10, "azucares": 4.7, "vit_a": 835, "vit_c": 6, "vit_d": 0, "ca": 33, "fe": 0.3, "sal": 0.07},
+    "cebolla": {"kcal": 40, "lip": 0.1, "ags": 0, "prot": 1.1, "hdec": 9.3, "azucares": 4.2, "vit_a": 0, "vit_c": 7, "vit_d": 0, "ca": 23, "fe": 0.2, "sal": 0.01},
+    "ajo": {"kcal": 149, "lip": 0.5, "ags": 0.1, "prot": 6.4, "hdec": 33.1, "azucares": 1, "vit_a": 0, "vit_c": 22, "vit_d": 0, "ca": 181, "fe": 1.7, "sal": 0.02},
+    "pimiento": {"kcal": 31, "lip": 0.3, "ags": 0.1, "prot": 1, "hdec": 6, "azucares": 4.2, "vit_a": 157, "vit_c": 128, "vit_d": 0, "ca": 10, "fe": 0.3, "sal": 0.01},
+    "calabacin": {"kcal": 17, "lip": 0.3, "ags": 0.1, "prot": 1.2, "hdec": 3.1, "azucares": 2.5, "vit_a": 10, "vit_c": 17, "vit_d": 0, "ca": 16, "fe": 0.4, "sal": 0.01},
+    "lentejas": {"kcal": 116, "lip": 0.4, "ags": 0.1, "prot": 9, "hdec": 20, "azucares": 1.8, "vit_a": 2, "vit_c": 2, "vit_d": 0, "ca": 35, "fe": 3.3, "sal": 0.01},
+    "alubias": {"kcal": 120, "lip": 0.5, "ags": 0.1, "prot": 8.3, "hdec": 20.8, "azucares": 1.4, "vit_a": 2, "vit_c": 1, "vit_d": 0, "ca": 50, "fe": 2.5, "sal": 0.01},
+    "pescado": {"kcal": 100, "lip": 2, "ags": 0.5, "prot": 20, "hdec": 0, "azucares": 0, "vit_a": 10, "vit_c": 0, "vit_d": 0.1, "ca": 15, "fe": 0.4, "sal": 0.1},
+    "huevos": {"kcal": 155, "lip": 11, "ags": 3.3, "prot": 13, "hdec": 1.1, "azucares": 1.1, "vit_a": 149, "vit_c": 0, "vit_d": 2.2, "ca": 56, "fe": 1.8, "sal": 0.12}
+}
 
 def normalizar_texto(texto):
     if not texto:
@@ -14,50 +32,86 @@ def normalizar_texto(texto):
     texto = texto.lower().strip()
     texto = unicodedata.normalize('NFD', texto)
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
-    return texto
+    return texto.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
 
 def cargar_base_nutricional():
-    global BASE_NUTRICIONAL
     ruta = "ingredientes.csv"
-    if not os.path.exists(ruta):
-        print("❌ ingredientes.csv no encontrado")
-        return
+    if os.path.exists(ruta):
+        try:
+            with open(ruta, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                required_cols = ["Alimento", "E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares", "Vit A (µg)", "Vit C (mg)", "vit D (µg)", "Ca (mg)", "Fe (mg)", "Sal"]
+                if not all(col in reader.fieldnames for col in required_cols):
+                    print("❌ CSV no tiene las columnas requeridas. Usando base por defecto.")
+                    return
 
-    try:
-        with open(ruta, mode='r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            required_cols = ["Alimento", "E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares", "Vit A (µg)", "Vit C (mg)", "vit D (µg)", "Ca (mg)", "Fe (mg)", "Sal"]
-            if not all(col in reader.fieldnames for col in required_cols):
-                print(f"❌ Faltan columnas en CSV. Esperadas: {required_cols}")
-                return
-
-            for row in reader:
-                nombre = normalizar_texto(row["Alimento"])
-                if not nombre:
-                    continue
-                BASE_NUTRICIONAL[nombre] = {
-                    "kcal": float(row["E (Kcal)"]),
-                    "lip": float(row["Líp (g)"]),
-                    "ags": float(row["AGS (g)"]),
-                    "prot": float(row["Prot (g)"]),
-                    "hdec": float(row["HdeC (g)"]),
-                    "azucares": float(row["Azucares"]),
-                    "vit_a": float(row["Vit A (µg)"]),
-                    "vit_c": float(row["Vit C (mg)"]),
-                    "vit_d": float(row["vit D (µg)"]),
-                    "ca": float(row["Ca (mg)"]),
-                    "fe": float(row["Fe (mg)"]),
-                    "sal": float(row["Sal"])
-                }
-        print(f"✅ Base nutricional cargada: {len(BASE_NUTRICIONAL)} ingredientes")
-    except Exception as e:
-        print(f"❌ Error al cargar ingredientes.csv: {e}")
+                for row in reader:
+                    nombre = normalizar_texto(row["Alimento"])
+                    if nombre:
+                        BASE_NUTRICIONAL[nombre] = {
+                            "kcal": float(row["E (Kcal)"]),
+                            "lip": float(row["Líp (g)"]),
+                            "ags": float(row["AGS (g)"]),
+                            "prot": float(row["Prot (g)"]),
+                            "hdec": float(row["HdeC (g)"]),
+                            "azucares": float(row["Azucares"]),
+                            "vit_a": float(row["Vit A (µg)"]),
+                            "vit_c": float(row["Vit C (mg)"]),
+                            "vit_d": float(row["vit D (µg)"]),
+                            "ca": float(row["Ca (mg)"]),
+                            "fe": float(row["Fe (mg)"]),
+                            "sal": float(row["Sal"])
+                        }
+            print(f"✅ Base nutricional cargada desde CSV: {len(BASE_NUTRICIONAL)} ingredientes")
+        except Exception as e:
+            print(f"⚠️ Error al cargar ingredientes.csv: {e}. Usando base por defecto.")
+    else:
+        print("⚠️ ingredientes.csv no encontrado. Usando base nutricional por defecto.")
 
 def buscar_ingrediente(nombre_ing):
     nombre_norm = normalizar_texto(nombre_ing)
     if not nombre_norm:
         return None
-    return BASE_NUTRICIONAL.get(nombre_norm)
+
+    # Búsqueda exacta
+    if nombre_norm in BASE_NUTRICIONAL:
+        return BASE_NUTRICIONAL[nombre_norm]
+
+    # Búsqueda parcial
+    for clave in BASE_NUTRICIONAL:
+        if nombre_norm in clave or clave in nombre_norm:
+            return BASE_NUTRICIONAL[clave]
+
+    # Palabras clave
+    if "agua" in nombre_norm:
+        return BASE_NUTRICIONAL["agua"]
+    if "sal" in nombre_norm:
+        return BASE_NUTRICIONAL["sal"]
+    if "aceite" in nombre_norm and "oliva" in nombre_norm:
+        return BASE_NUTRICIONAL["aceite de oliva"]
+    if "patata" in nombre_norm or "papa" in nombre_norm:
+        return BASE_NUTRICIONAL["patata"]
+    if "zanahoria" in nombre_norm:
+        return BASE_NUTRICIONAL["zanahoria"]
+    if "cebolla" in nombre_norm:
+        return BASE_NUTRICIONAL["cebolla"]
+    if "ajo" in nombre_norm:
+        return BASE_NUTRICIONAL["ajo"]
+    if "pimiento" in nombre_norm:
+        return BASE_NUTRICIONAL["pimiento"]
+    if "calabac" in nombre_norm:
+        return BASE_NUTRICIONAL["calabacin"]
+    if "lenteja" in nombre_norm:
+        return BASE_NUTRICIONAL["lentejas"]
+    if "alubia" in nombre_norm or "judia" in nombre_norm:
+        return BASE_NUTRICIONAL["alubias"]
+    if "pescado" in nombre_norm:
+        return BASE_NUTRICIONAL["pescado"]
+    if "huevo" in nombre_norm:
+        return BASE_NUTRICIONAL["huevos"]
+
+    print(f"⚠️ Ingrediente no encontrado: '{nombre_ing}'")
+    return None
 
 def calcular_nutricion_plato(ingredientes_gramaje):
     total = {
@@ -75,8 +129,6 @@ def calcular_nutricion_plato(ingredientes_gramaje):
             factor = gramos / 100.0
             for k in total:
                 total[k] += nut[k] * factor
-        else:
-            print(f"⚠️ Ingrediente no encontrado: '{nombre}'")
     for k in total:
         total[k] = round(total[k], 1)
     return total
@@ -146,6 +198,9 @@ def cargar_platos():
             except Exception as e:
                 print(f"❌ Error al cargar {filename}: {e}")
 
+# ==============================
+# INICIAR APP
+# ==============================
 cargar_base_nutricional()
 cargar_platos()
 
