@@ -98,16 +98,13 @@
       });
 
     function clasificarPlatos() {
-      const esPrimer = p => /lentejas|alubias|sopa|crema|pasta|guiso|puré|verduras/i.test(p.nombre.toLowerCase());
-      const esPostre = p => /fruta|yogur|flan|natilla|gelatina|queso fresco|manzana|pera|plátano|naranja|uva|melón|sandía|fresa|kiwi|ciruela|higo|piña|mandarina/i.test(p.nombre.toLowerCase());
-      const esAcompanamiento = p => /lechuga con|tomate con|pure de patata|patatas fritas|menestra|verduras asadas|patata cocida|patata al horno/i.test(p.nombre.toLowerCase());
+      const primeros = platos.filter(p => p.archivo.startsWith("PR."));
+      const segundos = platos.filter(p => p.archivo.startsWith("PO."));
+      const acompanamientos = platos.filter(p => p.archivo.startsWith("AC."));
+      const postres = platos.filter(p => p.archivo.startsWith("DE."));
+      const panes = platos.filter(p => p.archivo.startsWith("PA."));
       
-      const primeros = platos.filter(esPrimer);
-      const postres = platos.filter(esPostre);
-      const acompanamientos = platos.filter(esAcompanamiento);
-      const segundos = platos.filter(p => !esPrimer(p) && !esPostre(p) && !esAcompanamiento(p));
-      
-      return { primeros, segundos, acompanamientos, postres };
+      return { primeros, segundos, acompanamientos, postres, panes };
     }
 
     function generarCalendario() {
@@ -126,13 +123,14 @@
         menuMensual = {};
       }
 
-      const { primeros, segundos, acompanamientos, postres } = clasificarPlatos();
+      const { primeros, segundos, acompanamientos, postres, panes } = clasificarPlatos();
       let html = `<table><thead><tr>
         <th>Día</th>
         <th>1º Plato</th>
         <th>2º Plato</th>
         <th>Acompañamiento</th>
         <th>Postre</th>
+        <th>Pan</th>
       </tr></thead><tbody>`;
 
       const primerDia = new Date(anio, mes, 1);
@@ -143,7 +141,7 @@
         const diaSemana = fecha.getDay();
         if (diaSemana >= 1 && diaSemana <= 5) {
           const fechaStr = fecha.toISOString().split('T')[0];
-          const menuDia = menuMensual[fechaStr] || { primer: "", segundo: "", acompanamiento: "", postre: "" };
+          const menuDia = menuMensual[fechaStr] || { primer: "", segundo: "", acompanamiento: "", postre: "", pan: "" };
 
           html += `
             <tr>
@@ -172,6 +170,12 @@
                   ${postres.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.postre ? 'selected' : ''}>${p.nombre}</option>`).join('')}
                 </select>
               </td>
+              <td>
+                <select onchange="actualizarMenu('${fechaStr}', 'pan', this.value)">
+                  <option value="">-- Seleccionar --</option>
+                  ${panes.map(p => `<option value="${p.nombre}" ${p.nombre === menuDia.pan ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+                </select>
+              </td>
             </tr>`;
         }
       }
@@ -181,7 +185,7 @@
     }
 
     function actualizarMenu(fecha, tipo, valor) {
-      if (!menuMensual[fecha]) menuMensual[fecha] = { primer: "", segundo: "", acompanamiento: "", postre: "" };
+      if (!menuMensual[fecha]) menuMensual[fecha] = { primer: "", segundo: "", acompanamiento: "", postre: "", pan: "" };
       menuMensual[fecha][tipo] = valor;
     }
 
@@ -204,48 +208,46 @@
       const anio = document.getElementById('anio').value;
       const nombreMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mes];
 
-      const { primeros, segundos, acompanamientos, postres } = clasificarPlatos();
-      const todos = [...primeros, ...segundos, ...acompanamientos, ...postres];
+      const { primeros, segundos, acompanamientos, postres, panes } = clasificarPlatos();
+      const todos = [...primeros, ...segundos, ...acompanamientos, ...postres, ...panes];
       const getPlato = nombre => todos.find(p => p.nombre === nombre);
 
       const wb = XLSX.utils.book_new();
-      const ws = {};
+      const wsBase = XLSX.utils.aoa_to_sheet([[]]);
 
-      // Crear hoja vacía
-      const sheetData = [];
-      for (let i = 0; i < 200; i++) {
-        sheetData.push(new Array(50).fill(""));
-      }
-      const wsBase = XLSX.utils.aoa_to_sheet(sheetData);
-
-      // Encabezado en fila 2
+      // Encabezado
       XLSX.utils.sheet_add_aoa(wsBase, [[`Menú Escolar - ${colegio}`]], { origin: "I2" });
       XLSX.utils.sheet_add_aoa(wsBase, [[nombreMes]], { origin: "AB2" });
       XLSX.utils.sheet_add_aoa(wsBase, [[anio]], { origin: "AG2" });
 
-      // Estilo para encabezado
-      const encabezadoRango = XLSX.utils.decode_range("I2:AI2");
-      for (let C = encabezadoRango.s.c; C <= encabezadoRango.e.c; ++C) {
+      // Estilo encabezado
+      const encRango = XLSX.utils.decode_range("I2:AI2");
+      for (let C = encRango.s.c; C <= encRango.e.c; ++C) {
         const cell = XLSX.utils.encode_cell({ r: 1, c: C });
         if (!wsBase[cell]) wsBase[cell] = { v: "", t: "s" };
-        if (!wsBase[cell].s) wsBase[cell].s = {};
-        wsBase[cell].s.font = { name: "Very Simple Chalk", sz: 22, color: { rgb: "385724" } };
-        wsBase[cell].s.alignment = { horizontal: "center", vertical: "center" };
+        wsBase[cell].s = {
+          font: { name: "Very Simple Chalk", sz: 22, color: { rgb: "385724" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
       }
 
-      // Mapeo de días a columnas
+      // Mapeo días → columnas
       const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
-      const colInicio = { 'Lun': 1, 'Mar': 8, 'Mié': 15, 'Jue': 22, 'Vie': 29 }; // B=1, H=7→8, O=14→15, etc.
+      const colInicio = { 'Lun': 1, 'Mar': 8, 'Mié': 15, 'Jue': 22, 'Vie': 29 };
 
-      let maxRow = 4; // empezamos en fila 5 (índice 4)
+      // Generar calendario
+      const primerDia = new Date(anio, mes, 1);
+      const ultimoDia = new Date(anio, mes + 1, 0);
+      let maxRow = 4;
 
-      Object.keys(menuMensual).forEach(fecha => {
-        const menu = menuMensual[fecha];
-        if (!menu.primer && !menu.segundo && !menu.postre) return;
+      for (let d = primerDia.getDate(); d <= ultimoDia.getDate(); d++) {
+        const fecha = new Date(anio, mes, d);
+        const diaSemIdx = fecha.getDay() - 1;
+        if (diaSemIdx < 0 || diaSemIdx > 4) continue;
 
-        const fechaObj = new Date(fecha);
-        const diaSemIdx = fechaObj.getDay() - 1;
-        if (diaSemIdx < 0 || diaSemIdx > 4) return;
+        const fechaStr = fecha.toISOString().split('T')[0];
+        const menu = menuMensual[fechaStr];
+        if (!menu || (!menu.primer && !menu.segundo && !menu.postre)) continue;
 
         const diaSemana = diasSemana[diaSemIdx];
         const colBase = colInicio[diaSemana];
@@ -255,15 +257,15 @@
         const p2 = getPlato(menu.segundo);
         const pA = getPlato(menu.acompanamiento);
         const p3 = getPlato(menu.postre);
+        const pPan = getPlato(menu.pan);
 
-        // Filas combinadas
-        const ranges = [];
+        // Función para celdas combinadas
         const addCombined = (row, text) => {
           XLSX.utils.sheet_add_aoa(wsBase, [[text]], { origin: XLSX.utils.encode_cell({ r: row, c: colBase }) });
           const range = XLSX.utils.encode_range({ r: row, c: colBase }, { r: row, c: colBase + 5 });
-          ranges.push(range);
-          if (!wsBase[range]) wsBase[range] = {};
-          wsBase[range].s = { font: { name: "Arial", sz: 16 }, alignment: { horizontal: "center", vertical: "center" } };
+          wsBase[range] = {
+            s: { font: { name: "Arial", sz: 16 }, alignment: { horizontal: "center", vertical: "center" } }
+          };
         };
 
         addCombined(4, p1?.nombre || "");
@@ -271,85 +273,71 @@
         addCombined(6, p2?.nombre || "");
         addCombined(7, pA?.nombre || "");
         addCombined(8, `${traducirAlIngles(p2?.nombre || "")} with ${traducirAlIngles(pA?.nombre || "")}`);
-        addCombined(9, `${p3?.nombre || ""} + Agua + Pan`);
-        addCombined(10, `${traducirAlIngles(p3?.nombre || "")} + Water + Bread`);
+        addCombined(9, `${p3?.nombre || ""} + Agua + ${pPan?.nombre || "Pan"}`);
+        addCombined(10, `${traducirAlIngles(p3?.nombre || "")} + Water + ${traducirAlIngles(pPan?.nombre || "Bread")}`);
 
-        // Nutrición (filas 11-14)
+        // Nutrición
         const nut1 = p1?.nutricion || {};
         const nut2 = p2?.nutricion || {};
         const nutA = pA?.nutricion || {};
         const nut3 = p3?.nutricion || {};
+        const nutPan = pPan?.nutricion || {};
 
-        const kcal_total = (nut1.kcal || 0) + (nut2.kcal || 0) + (nutA.kcal || 0) + (nut3.kcal || 0);
-        const lip_total = (nut1.lip || 0) + (nut2.lip || 0) + (nutA.lip || 0) + (nut3.lip || 0);
-        const ags_total = (nut1.ags || 0) + (nut2.ags || 0) + (nutA.ags || 0) + (nut3.ags || 0);
-        const prot_total = (nut1.prot || 0) + (nut2.prot || 0) + (nutA.prot || 0) + (nut3.prot || 0);
-        const hdec_total = (nut1.hdec || 0) + (nut2.hdec || 0) + (nutA.hdec || 0) + (nut3.hdec || 0);
-        const azucares_total = (nut1.azucares || 0) + (nut2.azucares || 0) + (nutA.azucares || 0) + (nut3.azucares || 0);
-        const vit_a_total = (nut1.vit_a || 0) + (nut2.vit_a || 0) + (nutA.vit_a || 0) + (nut3.vit_a || 0);
-        const vit_c_total = (nut1.vit_c || 0) + (nut2.vit_c || 0) + (nutA.vit_c || 0) + (nut3.vit_c || 0);
-        const vit_d_total = (nut1.vit_d || 0) + (nut2.vit_d || 0) + (nutA.vit_d || 0) + (nut3.vit_d || 0);
-        const ca_total = (nut1.ca || 0) + (nut2.ca || 0) + (nutA.ca || 0) + (nut3.ca || 0);
-        const fe_total = (nut1.fe || 0) + (nut2.fe || 0) + (nutA.fe || 0) + (nut3.fe || 0);
-        const sal_total = (nut1.sal || 0) + (nut2.sal || 0) + (nutA.sal || 0) + (nut3.sal || 0);
+        const kcal_total = (nut1.kcal || 0) + (nut2.kcal || 0) + (nutA.kcal || 0) + (nut3.kcal || 0) + (nutPan.kcal || 0);
+        const lip_total = (nut1.lip || 0) + (nut2.lip || 0) + (nutA.lip || 0) + (nut3.lip || 0) + (nutPan.lip || 0);
+        const ags_total = (nut1.ags || 0) + (nut2.ags || 0) + (nutA.ags || 0) + (nut3.ags || 0) + (nutPan.ags || 0);
+        const prot_total = (nut1.prot || 0) + (nut2.prot || 0) + (nutA.prot || 0) + (nut3.prot || 0) + (nutPan.prot || 0);
+        const hdec_total = (nut1.hdec || 0) + (nut2.hdec || 0) + (nutA.hdec || 0) + (nut3.hdec || 0) + (nutPan.hdec || 0);
+        const azucares_total = (nut1.azucares || 0) + (nut2.azucares || 0) + (nutA.azucares || 0) + (nut3.azucares || 0) + (nutPan.azucares || 0);
+        const vit_a_total = (nut1.vit_a || 0) + (nut2.vit_a || 0) + (nutA.vit_a || 0) + (nut3.vit_a || 0) + (nutPan.vit_a || 0);
+        const vit_c_total = (nut1.vit_c || 0) + (nut2.vit_c || 0) + (nutA.vit_c || 0) + (nut3.vit_c || 0) + (nutPan.vit_c || 0);
+        const vit_d_total = (nut1.vit_d || 0) + (nut2.vit_d || 0) + (nutA.vit_d || 0) + (nut3.vit_d || 0) + (nutPan.vit_d || 0);
+        const ca_total = (nut1.ca || 0) + (nut2.ca || 0) + (nutA.ca || 0) + (nut3.ca || 0) + (nutPan.ca || 0);
+        const fe_total = (nut1.fe || 0) + (nut2.fe || 0) + (nutA.fe || 0) + (nut3.fe || 0) + (nutPan.fe || 0);
+        const sal_total = (nut1.sal || 0) + (nut2.sal || 0) + (nutA.sal || 0) + (nut3.sal || 0) + (nutPan.sal || 0);
 
-        // Encabezados nutrición
+        // Encabezados y valores nutrición
         const encNut = ["E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares"];
-        XLSX.utils.sheet_add_aoa(wsBase, [encNut], { origin: XLSX.utils.encode_cell({ r: 11, c: colBase }) });
-        // Valores nutrición
-        const valNut = [
-          kcal_total.toFixed(1),
-          lip_total.toFixed(1),
-          ags_total.toFixed(1),
-          prot_total.toFixed(1),
-          hdec_total.toFixed(1),
-          azucares_total.toFixed(1)
-        ];
-        XLSX.utils.sheet_add_aoa(wsBase, [valNut], { origin: XLSX.utils.encode_cell({ r: 12, c: colBase }) });
-        // Encabezados micronutrientes
+        const valNut = [kcal_total, lip_total, ags_total, prot_total, hdec_total, azucares_total].map(v => v.toFixed(1));
         const encMicro = ["Vit A (µg)", "Vit C (mg)", "vit D (µg)", "Ca (mg)", "Fe (mg)", "Sal"];
+        const valMicro = [vit_a_total, vit_c_total, vit_d_total, ca_total, fe_total, sal_total].map(v => v.toFixed(1));
+
+        XLSX.utils.sheet_add_aoa(wsBase, [encNut], { origin: XLSX.utils.encode_cell({ r: 11, c: colBase }) });
+        XLSX.utils.sheet_add_aoa(wsBase, [valNut], { origin: XLSX.utils.encode_cell({ r: 12, c: colBase }) });
         XLSX.utils.sheet_add_aoa(wsBase, [encMicro], { origin: XLSX.utils.encode_cell({ r: 13, c: colBase }) });
-        // Valores micronutrientes
-        const valMicro = [
-          vit_a_total.toFixed(1),
-          vit_c_total.toFixed(1),
-          vit_d_total.toFixed(1),
-          ca_total.toFixed(1),
-          fe_total.toFixed(1),
-          sal_total.toFixed(1)
-        ];
         XLSX.utils.sheet_add_aoa(wsBase, [valMicro], { origin: XLSX.utils.encode_cell({ r: 14, c: colBase }) });
 
-        // Estilo Arial 11 para nutrición
+        // Estilo Arial 11
         for (let r = 11; r <= 14; r++) {
           for (let c = colBase; c <= colBase + 5; c++) {
             const cell = XLSX.utils.encode_cell({ r, c });
             if (!wsBase[cell]) wsBase[cell] = { v: "", t: "s" };
-            if (!wsBase[cell].s) wsBase[cell].s = {};
-            wsBase[cell].s.font = { name: "Arial", sz: 11 };
-            wsBase[cell].s.alignment = { horizontal: "center", vertical: "center" };
+            wsBase[cell].s = {
+              font: { name: "Arial", sz: 11 },
+              alignment: { horizontal: "center", vertical: "center" }
+            };
           }
         }
 
-        // Filas de cena (B16 y B17)
+        // Filas cena (fondo #ffcc99)
         XLSX.utils.sheet_add_aoa(wsBase, [["cena"]], { origin: XLSX.utils.encode_cell({ r: 15, c: colBase }) });
-        const rangoCena1 = XLSX.utils.encode_range({ r: 15, c: colBase + 1 }, { r: 15, c: colBase + 5 });
-        wsBase[rangoCena1] = { s: { fill: { fgColor: { rgb: "ffcc99" } } } };
+        const rango1 = XLSX.utils.encode_range({ r: 15, c: colBase + 1 }, { r: 15, c: colBase + 5 });
+        wsBase[rango1] = { s: { fill: { fgColor: { rgb: "ffcc99" } } } };
 
         XLSX.utils.sheet_add_aoa(wsBase, [[""]], { origin: XLSX.utils.encode_cell({ r: 16, c: colBase }) });
-        const rangoCena2 = XLSX.utils.encode_range({ r: 16, c: colBase + 1 }, { r: 16, c: colBase + 5 });
-        wsBase[rangoCena2] = { s: { fill: { fgColor: { rgb: "ffcc99" } } } };
+        const rango2 = XLSX.utils.encode_range({ r: 16, c: colBase + 1 }, { r: 16, c: colBase + 5 });
+        wsBase[rango2] = { s: { fill: { fgColor: { rgb: "ffcc99" } } } };
 
         // Columna A: día del mes y día de la semana
-        XLSX.utils.sheet_add_aoa(wsBase, [[fechaObj.getDate()]], { origin: XLSX.utils.encode_cell({ r: 4, c: colBase - 1 }) });
+        XLSX.utils.sheet_add_aoa(wsBase, [[d]], { origin: XLSX.utils.encode_cell({ r: 4, c: colBase - 1 }) });
         wsBase[XLSX.utils.encode_cell({ r: 4, c: colBase - 1 })].s = {
           font: { name: "Arial", sz: 12 },
           alignment: { horizontal: "center", vertical: "center" }
         };
 
-        const rangoDiaSem = XLSX.utils.encode_range({ r: 5, c: colBase - 1 }, { r: 11, c: colBase - 1 });
+        const rangoDia = XLSX.utils.encode_range({ r: 5, c: colBase - 1 }, { r: 11, c: colBase - 1 });
         XLSX.utils.sheet_add_aoa(wsBase, [[diaSemana]], { origin: XLSX.utils.encode_cell({ r: 5, c: colBase - 1 }) });
-        wsBase[rangoDiaSem] = {
+        wsBase[rangoDia] = {
           s: {
             font: { name: "Arial", sz: 12 },
             alignment: { horizontal: "center", vertical: "center", textRotation: 90 }
@@ -357,16 +345,21 @@
         };
 
         maxRow = Math.max(maxRow, 16);
-      });
+      }
 
       // Pie de página
       const pieRow = maxRow + 2;
-      XLSX.utils.sheet_add_aoa(wsBase, [["Valorado nutricionalmente por Leticia Montoiro Peinado, Diplomada en Nutrición Humana y Dietética. Nº Colegiada CYL00207"]], { origin: XLSX.utils.encode_cell({ r: pieRow, c: 1 }) });
-      XLSX.utils.sheet_add_aoa(wsBase, [["La fruta podrá variar en función de su grado de madurez. Valoración nutricional en base a niños de 6-9 años."]], { origin: XLSX.utils.encode_cell({ r: pieRow + 1, c: 1 }) });
-      XLSX.utils.sheet_add_aoa(wsBase, [["Para cualquier consulta del menú o información de alérgenos, puedes enviar un correo a nuestra nutricionista a: nutricion@cofuri.es"]], { origin: XLSX.utils.encode_cell({ r: pieRow + 2, c: 1 }) });
-      XLSX.utils.sheet_add_aoa(wsBase, [["* Las recetas elaboradas llevan excluidos los alimentos arriba detallados."]], { origin: XLSX.utils.encode_cell({ r: pieRow + 3, c: 1 }) });
+      const pieTextos = [
+        "Valorado nutricionalmente por Leticia Montoiro Peinado, Diplomada en Nutrición Humana y Dietética. Nº Colegiada CYL00207",
+        "La fruta podrá variar en función de su grado de madurez. Valoración nutricional en base a niños de 6-9 años.",
+        "Para cualquier consulta del menú o información de alérgenos, puedes enviar un correo a nuestra nutricionista a: nutricion@cofuri.es",
+        "* Las recetas elaboradas llevan excluidos los alimentos arriba detallados."
+      ];
+      pieTextos.forEach((texto, i) => {
+        XLSX.utils.sheet_add_aoa(wsBase, [[texto]], { origin: XLSX.utils.encode_cell({ r: pieRow + i, c: 1 }) });
+      });
 
-      // Ajustar anchos de columna
+      // Anchura de columnas: 2,10 cm ≈ 150 px
       wsBase["!cols"] = [];
       for (let i = 0; i < 50; i++) {
         wsBase["!cols"][i] = { wpx: 150 };
