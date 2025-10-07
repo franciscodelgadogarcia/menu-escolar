@@ -83,7 +83,6 @@
     </div>
   </div>
 
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <script>
     let platos = [];
     let menuMensual = {};
@@ -204,208 +203,41 @@
         return;
       }
 
-      const mes = document.getElementById('mes').value;
+      const mesIndex = document.getElementById('mes').value;
       const anio = document.getElementById('anio').value;
-      const nombreMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mes];
+      const nombreMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mesIndex];
 
-      const { primeros, segundos, acompanamientos, postres, panes } = clasificarPlatos();
-      const todos = [...primeros, ...segundos, ...acompanamientos, ...postres, ...panes];
-      const getPlato = nombre => todos.find(p => p.nombre === nombre);
-
-      const wb = XLSX.utils.book_new();
-      const wsBase = XLSX.utils.aoa_to_sheet([[]]);
-
-      // Encabezado
-      XLSX.utils.sheet_add_aoa(wsBase, [[`Menú Escolar - ${colegio}`]], { origin: "I2" });
-      XLSX.utils.sheet_add_aoa(wsBase, [[nombreMes]], { origin: "AB2" });
-      XLSX.utils.sheet_add_aoa(wsBase, [[anio]], { origin: "AG2" });
-
-      // Estilo encabezado
-      const encRango = XLSX.utils.decode_range("I2:AI2");
-      for (let C = encRango.s.c; C <= encRango.e.c; ++C) {
-        const cell = XLSX.utils.encode_cell({ r: 1, c: C });
-        if (!wsBase[cell]) wsBase[cell] = { v: "", t: "s" };
-        wsBase[cell].s = {
-          font: { name: "Very Simple Chalk", sz: 22, color: { rgb: "385724" } },
-          alignment: { horizontal: "center", vertical: "center" }
-        };
-      }
-
-      // Mapeo días → columnas
-      const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
-      const colInicio = { 'Lun': 1, 'Mar': 8, 'Mié': 15, 'Jue': 22, 'Vie': 29 };
-
-      // Generar calendario
-      const primerDia = new Date(anio, mes, 1);
-      const ultimoDia = new Date(anio, mes + 1, 0);
-      let maxRow = 4;
-
-      for (let d = primerDia.getDate(); d <= ultimoDia.getDate(); d++) {
-        const fecha = new Date(anio, mes, d);
-        const diaSemIdx = fecha.getDay() - 1;
-        if (diaSemIdx < 0 || diaSemIdx > 4) continue;
-
-        const fechaStr = fecha.toISOString().split('T')[0];
-        const menu = menuMensual[fechaStr];
-        if (!menu || (!menu.primer && !menu.segundo && !menu.postre)) continue;
-
-        const diaSemana = diasSemana[diaSemIdx];
-        const colBase = colInicio[diaSemana];
-
-        // Obtener platos
-        const p1 = getPlato(menu.primer);
-        const p2 = getPlato(menu.segundo);
-        const pA = getPlato(menu.acompanamiento);
-        const p3 = getPlato(menu.postre);
-        const pPan = getPlato(menu.pan);
-
-        // Función para celdas combinadas
-        const addCombined = (row, text) => {
-          XLSX.utils.sheet_add_aoa(wsBase, [[text]], { origin: XLSX.utils.encode_cell({ r: row, c: colBase }) });
-          const range = XLSX.utils.encode_range({ r: row, c: colBase }, { r: row, c: colBase + 5 });
-          wsBase[range] = {
-            s: { font: { name: "Arial", sz: 16 }, alignment: { horizontal: "center", vertical: "center" } }
-          };
-        };
-
-        addCombined(4, p1?.nombre || "");
-        addCombined(5, traducirAlIngles(p1?.nombre || ""));
-        addCombined(6, p2?.nombre || "");
-        addCombined(7, pA?.nombre || "");
-        addCombined(8, `${traducirAlIngles(p2?.nombre || "")} with ${traducirAlIngles(pA?.nombre || "")}`);
-        addCombined(9, `${p3?.nombre || ""} + Agua + ${pPan?.nombre || "Pan"}`);
-        addCombined(10, `${traducirAlIngles(p3?.nombre || "")} + Water + ${traducirAlIngles(pPan?.nombre || "Bread")}`);
-
-        // Nutrición
-        const nut1 = p1?.nutricion || {};
-        const nut2 = p2?.nutricion || {};
-        const nutA = pA?.nutricion || {};
-        const nut3 = p3?.nutricion || {};
-        const nutPan = pPan?.nutricion || {};
-
-        const kcal_total = (nut1.kcal || 0) + (nut2.kcal || 0) + (nutA.kcal || 0) + (nut3.kcal || 0) + (nutPan.kcal || 0);
-        const lip_total = (nut1.lip || 0) + (nut2.lip || 0) + (nutA.lip || 0) + (nut3.lip || 0) + (nutPan.lip || 0);
-        const ags_total = (nut1.ags || 0) + (nut2.ags || 0) + (nutA.ags || 0) + (nut3.ags || 0) + (nutPan.ags || 0);
-        const prot_total = (nut1.prot || 0) + (nut2.prot || 0) + (nutA.prot || 0) + (nut3.prot || 0) + (nutPan.prot || 0);
-        const hdec_total = (nut1.hdec || 0) + (nut2.hdec || 0) + (nutA.hdec || 0) + (nut3.hdec || 0) + (nutPan.hdec || 0);
-        const azucares_total = (nut1.azucares || 0) + (nut2.azucares || 0) + (nutA.azucares || 0) + (nut3.azucares || 0) + (nutPan.azucares || 0);
-        const vit_a_total = (nut1.vit_a || 0) + (nut2.vit_a || 0) + (nutA.vit_a || 0) + (nut3.vit_a || 0) + (nutPan.vit_a || 0);
-        const vit_c_total = (nut1.vit_c || 0) + (nut2.vit_c || 0) + (nutA.vit_c || 0) + (nut3.vit_c || 0) + (nutPan.vit_c || 0);
-        const vit_d_total = (nut1.vit_d || 0) + (nut2.vit_d || 0) + (nutA.vit_d || 0) + (nut3.vit_d || 0) + (nutPan.vit_d || 0);
-        const ca_total = (nut1.ca || 0) + (nut2.ca || 0) + (nutA.ca || 0) + (nut3.ca || 0) + (nutPan.ca || 0);
-        const fe_total = (nut1.fe || 0) + (nut2.fe || 0) + (nutA.fe || 0) + (nut3.fe || 0) + (nutPan.fe || 0);
-        const sal_total = (nut1.sal || 0) + (nut2.sal || 0) + (nutA.sal || 0) + (nut3.sal || 0) + (nutPan.sal || 0);
-
-        // Encabezados y valores nutrición
-        const encNut = ["E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares"];
-        const valNut = [kcal_total, lip_total, ags_total, prot_total, hdec_total, azucares_total].map(v => v.toFixed(1));
-        const encMicro = ["Vit A (µg)", "Vit C (mg)", "vit D (µg)", "Ca (mg)", "Fe (mg)", "Sal"];
-        const valMicro = [vit_a_total, vit_c_total, vit_d_total, ca_total, fe_total, sal_total].map(v => v.toFixed(1));
-
-        XLSX.utils.sheet_add_aoa(wsBase, [encNut], { origin: XLSX.utils.encode_cell({ r: 11, c: colBase }) });
-        XLSX.utils.sheet_add_aoa(wsBase, [valNut], { origin: XLSX.utils.encode_cell({ r: 12, c: colBase }) });
-        XLSX.utils.sheet_add_aoa(wsBase, [encMicro], { origin: XLSX.utils.encode_cell({ r: 13, c: colBase }) });
-        XLSX.utils.sheet_add_aoa(wsBase, [valMicro], { origin: XLSX.utils.encode_cell({ r: 14, c: colBase }) });
-
-        // Estilo Arial 11
-        for (let r = 11; r <= 14; r++) {
-          for (let c = colBase; c <= colBase + 5; c++) {
-            const cell = XLSX.utils.encode_cell({ r, c });
-            if (!wsBase[cell]) wsBase[cell] = { v: "", t: "s" };
-            wsBase[cell].s = {
-              font: { name: "Arial", sz: 11 },
-              alignment: { horizontal: "center", vertical: "center" }
-            };
-          }
+      fetch('/api/exportar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          colegio,
+          mes: nombreMes,
+          anio,
+          menu: menuMensual
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(err => { throw new Error(err.error || 'Error desconocido'); });
         }
-
-        // Filas cena (fondo #ffcc99)
-        XLSX.utils.sheet_add_aoa(wsBase, [["cena"]], { origin: XLSX.utils.encode_cell({ r: 15, c: colBase }) });
-        const rango1 = XLSX.utils.encode_range({ r: 15, c: colBase + 1 }, { r: 15, c: colBase + 5 });
-        wsBase[rango1] = { s: { fill: { fgColor: { rgb: "ffcc99" } } } };
-
-        XLSX.utils.sheet_add_aoa(wsBase, [[""]], { origin: XLSX.utils.encode_cell({ r: 16, c: colBase }) });
-        const rango2 = XLSX.utils.encode_range({ r: 16, c: colBase + 1 }, { r: 16, c: colBase + 5 });
-        wsBase[rango2] = { s: { fill: { fgColor: { rgb: "ffcc99" } } } };
-
-        // Columna A: día del mes y día de la semana
-        XLSX.utils.sheet_add_aoa(wsBase, [[d]], { origin: XLSX.utils.encode_cell({ r: 4, c: colBase - 1 }) });
-        wsBase[XLSX.utils.encode_cell({ r: 4, c: colBase - 1 })].s = {
-          font: { name: "Arial", sz: 12 },
-          alignment: { horizontal: "center", vertical: "center" }
-        };
-
-        const rangoDia = XLSX.utils.encode_range({ r: 5, c: colBase - 1 }, { r: 11, c: colBase - 1 });
-        XLSX.utils.sheet_add_aoa(wsBase, [[diaSemana]], { origin: XLSX.utils.encode_cell({ r: 5, c: colBase - 1 }) });
-        wsBase[rangoDia] = {
-          s: {
-            font: { name: "Arial", sz: 12 },
-            alignment: { horizontal: "center", vertical: "center", textRotation: 90 }
-          }
-        };
-
-        maxRow = Math.max(maxRow, 16);
-      }
-
-      // Pie de página
-      const pieRow = maxRow + 2;
-      const pieTextos = [
-        "Valorado nutricionalmente por Leticia Montoiro Peinado, Diplomada en Nutrición Humana y Dietética. Nº Colegiada CYL00207",
-        "La fruta podrá variar en función de su grado de madurez. Valoración nutricional en base a niños de 6-9 años.",
-        "Para cualquier consulta del menú o información de alérgenos, puedes enviar un correo a nuestra nutricionista a: nutricion@cofuri.es",
-        "* Las recetas elaboradas llevan excluidos los alimentos arriba detallados."
-      ];
-      pieTextos.forEach((texto, i) => {
-        XLSX.utils.sheet_add_aoa(wsBase, [[texto]], { origin: XLSX.utils.encode_cell({ r: pieRow + i, c: 1 }) });
+        return response.blob();
+      })
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `menu_escolar_${colegio.replace(/\s+/g, '_')}_${nombreMes}_${anio}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error al generar el Excel: ' + error.message);
       });
-
-      // Anchura de columnas: 2,10 cm ≈ 150 px
-      wsBase["!cols"] = [];
-      for (let i = 0; i < 50; i++) {
-        wsBase["!cols"][i] = { wpx: 150 };
-      }
-
-      XLSX.utils.book_append_sheet(wb, wsBase, "Menú Mensual");
-
-      const nombreColegio = colegio
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "_")
-        .replace(/[^\w]/g, "");
-
-      const nombreArchivo = `menu_escolar_${nombreColegio}_${nombreMes}_${anio}.xlsx`;
-      XLSX.writeFile(wb, nombreArchivo);
-    }
-
-    function traducirAlIngles(texto) {
-      const traducciones = {
-        "Lentejas": "Lentils", "Alubias": "Beans", "Sopa": "Soup", "Crema": "Cream", "Pasta": "Pasta",
-        "Guiso": "Stew", "Puré": "Mash", "Verduras": "Vegetables", "Pollo": "Chicken", "Pescado": "Fish",
-        "Carne": "Meat", "Jamón": "Ham", "Chorizo": "Chorizo", "Morcilla": "Blood sausage", "Merluza": "Hake",
-        "Bacalao": "Cod", "Salmón": "Salmon", "Atún": "Tuna", "Sardinas": "Sardines", "Patata": "Potato",
-        "Zanahoria": "Carrot", "Cebolla": "Onion", "Tomate": "Tomato", "Pimiento": "Pepper", "Calabacín": "Zucchini",
-        "Espinacas": "Spinach", "Acelgas": "Chard", "Judías verdes": "Green beans", "Brócoli": "Broccoli",
-        "Coliflor": "Cauliflower", "Lechuga": "Lettuce", "Puerro": "Leek", "Apio": "Celery", "Remolacha": "Beetroot",
-        "Champiñón": "Mushroom", "Ajo": "Garlic", "Guisantes": "Peas", "Maíz": "Corn", "Manzana": "Apple",
-        "Pera": "Pear", "Plátano": "Banana", "Naranja": "Orange", "Mandarina": "Tangerine", "Uva": "Grape",
-        "Melón": "Melon", "Sandía": "Watermelon", "Fresa": "Strawberry", "Kiwi": "Kiwi", "Piña": "Pineapple",
-        "Melocotón": "Peach", "Ciruela": "Plum", "Higo": "Fig", "Aguacate": "Avocado", "Leche": "Milk",
-        "Yogur": "Yogurt", "Queso fresco": "Fresh cheese", "Requesón": "Cottage cheese", "Huevo": "Egg",
-        "Gelatina": "Gelatin", "Flan": "Flan", "Natillas": "Custard", "Pan": "Bread", "Agua": "Water",
-        "Lechuga con tomate": "Lettuce with tomato", "Lechuga con zanahoria": "Lettuce with carrot",
-        "Lechuga con remolacha": "Lettuce with beetroot", "Lechuga con aceituna": "Lettuce with olive",
-        "Lechuga con maiz": "Lettuce with corn", "Tomate con maiz": "Tomato with corn",
-        "Tomate con zanahoria": "Tomato with carrot", "Pure de patata": "Mashed potato",
-        "Patatas fritas": "French fries", "Patata cocida": "Boiled potato", "Patata al horno": "Baked potato",
-        "Menestra de verdura": "Mixed vegetables", "Verduras asadas": "Roasted vegetables"
-      };
-
-      let resultado = texto;
-      for (const [es, en] of Object.entries(traducciones)) {
-        const regex = new RegExp(`\\b${es}\\b`, 'gi');
-        resultado = resultado.replace(regex, en);
-      }
-      return resultado;
     }
   </script>
 </body>
