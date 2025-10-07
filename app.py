@@ -52,33 +52,28 @@ def normalizar_texto(texto):
     texto = texto.lower().strip()
     texto = unicodedata.normalize('NFD', texto)
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
-    return texto.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    return texto.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u"
 
 def buscar_ingrediente(nombre_ing):
     nombre_norm = normalizar_texto(nombre_ing)
     if not nombre_norm:
         return BASE_NUTRICIONAL.get("agua", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
+
+    # 1. Coincidencia exacta
     if nombre_norm in BASE_NUTRICIONAL:
         return BASE_NUTRICIONAL[nombre_norm]
-    for clave in BASE_NUTRICIONAL:
-        if nombre_norm in clave or clave in nombre_norm:
-            return BASE_NUTRICIONAL[clave]
-    # Palabras clave genéricas
-    if "pollo" in nombre_norm: return BASE_NUTRICIONAL.get("pollo", {})
-    if "cerdo" in nombre_norm: return BASE_NUTRICIONAL.get("cerdo", {})
-    if "ternera" in nombre_norm: return BASE_NUTRICIONAL.get("ternera", {})
-    if "pescado" in nombre_norm: return BASE_NUTRICIONAL.get("pescado", {})
-    if "huevo" in nombre_norm: return BASE_NUTRICIONAL.get("huevos", {})
-    if "patata" in nombre_norm: return BASE_NUTRICIONAL.get("patata", {})
-    if "zanahoria" in nombre_norm: return BASE_NUTRICIONAL.get("zanahoria", {})
-    if "cebolla" in nombre_norm: return BASE_NUTRICIONAL.get("cebolla", {})
-    if "tomate" in nombre_norm: return BASE_NUTRICIONAL.get("tomate", {})
-    if "lechuga" in nombre_norm: return BASE_NUTRICIONAL.get("lechuga", {})
-    if "aceite" in nombre_norm and "oliva" in nombre_norm: return BASE_NUTRICIONAL.get("aceite de oliva", {})
-    if "sal" in nombre_norm: return BASE_NUTRICIONAL.get("sal", {})
-    if "agua" in nombre_norm: return BASE_NUTRICIONAL.get("agua", {})
-    print(f"⚠️ Ingrediente no encontrado, usando 'pollo': '{nombre_ing}'")
-    return BASE_NUTRICIONAL.get("pollo", {})
+
+    # 2. Búsqueda por subcadenas progresivas (de derecha a izquierda)
+    for i in range(len(nombre_norm), 2, -1):  # mínimo 3 letras
+        subcadena = nombre_norm[:i]
+        for clave in BASE_NUTRICIONAL:
+            if subcadena in clave:
+                print(f"🔍 Coincidencia parcial: '{nombre_ing}' → '{clave}' (subcadena: '{subcadena}')")
+                return BASE_NUTRICIONAL[clave]
+
+    # 3. Último recurso: usar "agua" (0 kcal)
+    print(f"⚠️ Ingrediente no encontrado, usando 'agua': '{nombre_ing}'")
+    return BASE_NUTRICIONAL.get("agua", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
 
 def calcular_nutricion_plato(ingredientes_gramaje):
     total = {"kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 0}
