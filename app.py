@@ -4,6 +4,7 @@ import csv
 from openpyxl import load_workbook
 import unicodedata
 from datetime import datetime
+from openpyxl.styles import Font, PatternFill, Alignment
 
 app = Flask(__name__)
 PLATOS = []
