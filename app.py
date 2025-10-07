@@ -263,7 +263,7 @@ def exportar_menu():
 
             # Columna A: día y día de la semana
             ws.cell(row=fila_base, column=1, value=fecha.day)
-            ws.merge_cells(start_row=fila_base+1, start_column=1, end_row=fila_base+7, start_column=1)
+            ws.merge_cells(start_row=fila_base+1, start_column=1, end_row=fila_base+7, end_column=1)
             ws.cell(row=fila_base+1, column=1, value=dia_semana)
             ws.cell(row=fila_base+1, column=1).alignment = Alignment(text_rotation=90)
 
