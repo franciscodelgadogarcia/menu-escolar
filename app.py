@@ -64,15 +64,31 @@ def buscar_ingrediente(nombre_ing):
     if nombre_norm in BASE_NUTRICIONAL:
         return BASE_NUTRICIONAL[nombre_norm]
 
-    # 2. Búsqueda por subcadenas progresivas (de derecha a izquierda)
-    for i in range(len(nombre_norm), 2, -1):  # mínimo 3 letras
-        subcadena = nombre_norm[:i]
-        for clave in BASE_NUTRICIONAL:
-            if subcadena in clave:
-                print(f"🔍 Coincidencia parcial: '{nombre_ing}' → '{clave}' (subcadena: '{subcadena}')")
-                return BASE_NUTRICIONAL[clave]
+    # 2. Buscar por palabras clave (más robusto)
+    palabras_ing = set(nombre_norm.split())
+    mejor_coincidencia = None
+    max_coincidencias = 0
 
-    # 3. Último recurso: usar "agua" (0 kcal)
+    for clave_norm, nut in BASE_NUTRICIONAL.items():
+        palabras_clave = set(clave_norm.split())
+        coincidencias = len(palabras_ing & palabras_clave)  # intersección
+        
+        # También buscar subcadenas de al menos 3 letras
+        for palabra in palabras_ing:
+            if len(palabra) >= 3:
+                for palabra_clave in palabras_clave:
+                    if palabra in palabra_clave or palabra_clave in palabra:
+                        coincidencias += 1
+        
+        if coincidencias > max_coincidencias:
+            max_coincidencias = coincidencias
+            mejor_coincidencia = nut
+
+    if mejor_coincidencia and max_coincidencias >= 1:
+        print(f"🔍 Coincidencia por palabras: '{nombre_ing}' → '{mejor_coincidencia}' ({max_coincidencias} coincidencias)")
+        return mejor_coincidencia
+
+    # 3. Último recurso: usar "agua"
     print(f"⚠️ Ingrediente no encontrado, usando 'agua': '{nombre_ing}'")
     return BASE_NUTRICIONAL.get("agua", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
 
