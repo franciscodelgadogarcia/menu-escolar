@@ -156,10 +156,13 @@ def exportar_menu():
     menu_datos = data.get("menu", {})
 
     if not colegio or not menu_datos:
-        return jsonify({"error": "Faltan datos"}), 400
+        return jsonify({"error": "Faltan datos: colegio o menú"}), 400
 
     try:
-        # Cargar plantilla
+        # Verificar que la plantilla exista
+        if not os.path.exists("plantilla_menu.xlsx"):
+            return jsonify({"error": "No se encontró plantilla_menu.xlsx"}), 500
+
         wb = load_workbook("plantilla_menu.xlsx")
         ws = wb.active
 
@@ -168,17 +171,18 @@ def exportar_menu():
         ws["AB2"] = mes
         ws["AG2"] = anio
 
-        # Mapeo de días a columnas (B=2, H=8→9, O=15, V=22, AC=29)
+        # Mapeo de días a columnas
         col_inicio = {'Lun': 2, 'Mar': 9, 'Mié': 16, 'Jue': 23, 'Vie': 30}
 
-        # Rellenar cada día
         for fecha_str, menu in menu_datos.items():
             if not any([menu.get("primer"), menu.get("segundo"), menu.get("postre")]):
                 continue
 
+            # Validar fecha
             try:
                 fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
-            except:
+            except ValueError:
+                print(f"Fecha inválida ignorada: {fecha_str}")
                 continue
 
             dia_semana = fecha.strftime("%a")[:3]
@@ -186,7 +190,7 @@ def exportar_menu():
                 continue
 
             col = col_inicio[dia_semana]
-            fila_base = 5  # B5
+            fila_base = 5
 
             # Obtener platos
             p1 = next((p for p in PLATOS if p["nombre"] == menu.get("primer")), None)
@@ -195,14 +199,11 @@ def exportar_menu():
             p3 = next((p for p in PLATOS if p["nombre"] == menu.get("postre")), None)
             pPan = next((p for p in PLATOS if p["nombre"] == menu.get("pan")), None)
 
-            # Rellenar celdas combinadas
-            from openpyxl.utils import get_column_letter
-            from openpyxl.worksheet.merge_cells import MergedCellRange
-
             # Función para combinar y rellenar
             def combinar_y_rellenar(fila, col_inicio, col_fin, valor):
                 ws.merge_cells(start_row=fila, start_column=col_inicio, end_row=fila, end_column=col_fin)
-                ws.cell(row=fila, column=col_inicio, value=valor)
+                cell = ws.cell(row=fila, column=col_inicio, value=valor)
+                cell.alignment = Alignment(horizontal="center", vertical="center")
 
             combinar_y_rellenar(fila_base, col, col+5, p1["nombre"] if p1 else "")
             combinar_y_rellenar(fila_base+1, col, col+5, traducir_al_ingles(p1["nombre"] if p1 else ""))
@@ -220,7 +221,7 @@ def exportar_menu():
             nutPan = pPan["nutricion"] if pPan else {}
 
             def get_val(nut, key):
-                return nut.get(key, 0)
+                return float(nut.get(key, 0)) if nut else 0.0
 
             kcal_total = get_val(nut1, "kcal") + get_val(nut2, "kcal") + get_val(nutA, "kcal") + get_val(nut3, "kcal") + get_val(nutPan, "kcal")
             lip_total = get_val(nut1, "lip") + get_val(nut2, "lip") + get_val(nutA, "lip") + get_val(nut3, "lip") + get_val(nutPan, "lip")
@@ -235,7 +236,7 @@ def exportar_menu():
             fe_total = get_val(nut1, "fe") + get_val(nut2, "fe") + get_val(nutA, "fe") + get_val(nut3, "fe") + get_val(nutPan, "fe")
             sal_total = get_val(nut1, "sal") + get_val(nut2, "sal") + get_val(nutA, "sal") + get_val(nut3, "sal") + get_val(nutPan, "sal")
 
-            # Encabezados y valores
+            # Nutrición (filas 12-15)
             encabezados = ["E (Kcal)", "Líp (g)", "AGS (g)", "Prot (g)", "HdeC (g)", "Azucares"]
             valores = [kcal_total, lip_total, ags_total, prot_total, hdec_total, azucares_total]
             for i, (enc, val) in enumerate(zip(encabezados, valores)):
@@ -248,8 +249,7 @@ def exportar_menu():
                 ws.cell(row=fila_base+9, column=col+i, value=enc)
                 ws.cell(row=fila_base+10, column=col+i, value=round(val, 1))
 
-            # Filas de cena (fondo #ffcc99)
-            from openpyxl.styles import PatternFill
+            # Cena (fondo #ffcc99)
             fill = PatternFill(start_color="FFCC99", end_color="FFCC99", fill_type="solid")
             ws.cell(row=fila_base+11, column=col, value="cena")
             for c in range(col+1, col+6):
@@ -257,14 +257,14 @@ def exportar_menu():
             for c in range(col, col+6):
                 ws.cell(row=fila_base+12, column=c).fill = fill
 
-            # Columna A: día y día de la semana
+            # Columna A
             ws.cell(row=fila_base, column=1, value=fecha.day)
             ws.merge_cells(start_row=fila_base+1, start_column=1, end_row=fila_base+7, end_column=1)
-            ws.cell(row=fila_base+1, column=1, value=dia_semana)
-            ws.cell(row=fila_base+1, column=1).alignment = Alignment(text_rotation=90)
+            cell_dia = ws.cell(row=fila_base+1, column=1, value=dia_semana)
+            cell_dia.alignment = Alignment(text_rotation=90, horizontal="center", vertical="center")
 
         # Pie de página
-        ultima_fila = fila_base + 15
+        ultima_fila = 100  # Ajusta según necesites
         pie_textos = [
             "Valorado nutricionalmente por Leticia Montoiro Peinado, Diplomada en Nutrición Humana y Dietética. Nº Colegiada CYL00207",
             "La fruta podrá variar en función de su grado de madurez. Valoración nutricional en base a niños de 6-9 años.",
@@ -274,7 +274,7 @@ def exportar_menu():
         for i, texto in enumerate(pie_textos):
             ws.cell(row=ultima_fila + i, column=2, value=texto)
 
-        # Guardar en memoria
+        # Guardar
         from io import BytesIO
         output = BytesIO()
         wb.save(output)
@@ -286,9 +286,9 @@ def exportar_menu():
         )
 
     except Exception as e:
-        print(f"Error al exportar: {e}")
-        return jsonify({"error": "Error al generar Excel"}), 500
-
+        print(f"❌ Error detallado al exportar: {str(e)}")
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+        
 def traducir_al_ingles(texto):
     traducciones = {
         "Lentejas": "Lentils", "Alubias": "Beans", "Sopa": "Soup", "Crema": "Cream", "Pasta": "Pasta",
