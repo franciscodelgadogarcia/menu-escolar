@@ -53,7 +53,7 @@ def normalizar_texto(texto):
     texto = texto.lower().strip()
     texto = unicodedata.normalize('NFD', texto)
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
-    return texto.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u"
+    return texto.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
 
 def buscar_ingrediente(nombre_ing):
     nombre_norm = normalizar_texto(nombre_ing)
