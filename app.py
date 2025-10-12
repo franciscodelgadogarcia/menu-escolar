@@ -174,54 +174,206 @@ def exportar_menu():
     if not colegio or not menu_datos:
         return jsonify({"error": "Faltan datos"}), 400
 
-    # Generar HTML con formato de Excel
-    html = f"""
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" 
-          xmlns:x="urn:schemas-microsoft-com:office:excel" 
-          xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-    <meta http-equiv=Content-Type content="text/html; charset=utf-8">
-    <style>
-        body {{ font-family: Arial; font-size: 11pt; }}
-        table {{ border-collapse: collapse; }}
-        td, th {{ border: 1px solid black; padding: 4px; }}
-        .encabezado {{ font-family: 'Very Simple Chalk'; font-size: 22pt; color: #385724; text-align: center; }}
-        .cena {{ background-color: #ffcc99; }}
-        .rotado {{ writing-mode: tb-rl; text-align: center; }}
-    </style>
-    <!--[if gte mso 9]><xml>
-    <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
-    <x:Name>Menú Mensual</x:Name>
-    <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
-    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-    </head>
-    <body>
-    <table>
-    <tr>
-        <td colspan="8"></td>
-        <td colspan="28" class="encabezado">Menú Escolar - {colegio}</td>
-    </tr>
-    <tr>
-        <td colspan="8"></td>
-        <td colspan="20" class="encabezado">{mes}</td>
-        <td colspan="8" class="encabezado">{anio}</td>
-    </tr>
-    """
+    # Obtener listas de platos
+    { primeros, segundos, acompanamientos, postres, panes } = clasificar_platos_dict()
+    todos_platos = primeros + segundos + acompanamientos + postres + panes
 
-    # Aquí iría la lógica para generar filas por día
-    # (simplificada para el ejemplo)
+    def get_plato(nombre):
+        for p in todos_platos:
+            if p["nombre"] == nombre:
+                return p
+        return None
 
-    html += """
+    # Iniciar HTML con soporte para Excel
+    html = '''<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" 
+      xmlns:x="urn:schemas-microsoft-com:office:excel" 
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=utf-8">
+<style>
+body { font-family: Arial; }
+table { border-collapse: collapse; width: 100%; }
+td, th { 
+    border: 1px solid #000; 
+    padding: 4px; 
+    font-size: 11pt;
+    height: 20px;
+}
+.encabezado { 
+    font-family: "Very Simple Chalk"; 
+    font-size: 22pt; 
+    color: #385724; 
+    text-align: center;
+    height: 30px;
+}
+.celda-combinada {
+    text-align: center;
+    vertical-align: middle;
+    font-size: 16pt;
+    height: 25px;
+}
+.cena { 
+    background-color: #ffcc99; 
+}
+.rotado { 
+    writing-mode: tb-rl; 
+    text-align: center; 
+    vertical-align: middle;
+    height: 100px;
+    width: 20px;
+}
+.columna-dia { 
+    width: 20px; 
+    text-align: center; 
+    vertical-align: middle;
+    font-size: 12pt;
+}
+</style>
+<!--[if gte mso 9]><xml>
+<x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Menú Mensual</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head>
+<body>
+<table>
+<tr>
+    <td colspan="8"></td>
+    <td colspan="28" class="encabezado">Menú Escolar - ''' + colegio + '''</td>
+</tr>
+<tr>
+    <td colspan="8"></td>
+    <td colspan="20" class="encabezado">''' + mes + '''</td>
+    <td colspan="8" class="encabezado">''' + str(anio) + '''</td>
+</tr>
+'''
+
+    # Generar filas por día
+    dias_procesados = 0
+    for fecha_str, menu in menu_datos.items():
+        if not any([menu.get("primer"), menu.get("segundo"), menu.get("postre")]):
+            continue
+
+        try:
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
+        except:
+            continue
+
+        dia_semana = fecha.strftime("%a")[:3]
+        if dia_semana not in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']:
+            continue
+
+        # Obtener platos
+        p1 = get_plato(menu.get("primer", ""))
+        p2 = get_plato(menu.get("segundo", ""))
+        pA = get_plato(menu.get("acompanamiento", ""))
+        p3 = get_plato(menu.get("postre", ""))
+        pPan = get_plato(menu.get("pan", ""))
+
+        # Calcular nutrición
+        def get_nut(plato):
+            return plato["nutricion"] if plato else {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0}
+
+        nut1, nut2, nutA, nut3, nutPan = map(get_nut, [p1, p2, pA, p3, pPan])
+
+        def sumar_nut(clave):
+            return round(nut1[clave] + nut2[clave] + nutA[clave] + nut3[clave] + nutPan[clave], 1)
+
+        # Construir filas del día
+        html += f'''
+        <tr>
+            <td class="columna-dia" rowspan="13">{fecha.day}</td>
+            <td class="celda-combinada" colspan="6">{p1["nombre"] if p1 else ""}</td>
+        </tr>
+        <tr><td class="celda-combinada" colspan="6">{traducir_al_ingles(p1["nombre"] if p1 else "")}</td></tr>
+        <tr><td class="celda-combinada" colspan="6">{p2["nombre"] if p2 else ""}</td></tr>
+        <tr><td class="celda-combinada" colspan="6">{pA["nombre"] if pA else ""}</td></tr>
+        <tr><td class="celda-combinada" colspan="6">{traducir_al_ingles(p2["nombre"] if p2 else "")} with {traducir_al_ingles(pA["nombre"] if pA else "")}</td></tr>
+        <tr><td class="celda-combinada" colspan="6">{(p3["nombre"] if p3 else "") + " + Agua + " + (pPan["nombre"] if pPan else "Pan")}</td></tr>
+        <tr><td class="celda-combinada" colspan="6">{traducir_al_ingles(p3["nombre"] if p3 else "")} + Water + {traducir_al_ingles(pPan["nombre"] if pPan else "Bread")}</td></tr>
+        <tr>
+            <td>E (Kcal)</td><td>Líp (g)</td><td>AGS (g)</td><td>Prot (g)</td><td>HdeC (g)</td><td>Azucares</td>
+        </tr>
+        <tr>
+            <td>{sumar_nut("kcal")}</td><td>{sumar_nut("lip")}</td><td>{sumar_nut("ags")}</td><td>{sumar_nut("prot")}</td><td>{sumar_nut("hdec")}</td><td>{sumar_nut("azucares")}</td>
+        </tr>
+        <tr>
+            <td>Vit A (µg)</td><td>Vit C (mg)</td><td>vit D (µg)</td><td>Ca (mg)</td><td>Fe (mg)</td><td>Sal</td>
+        </tr>
+        <tr>
+            <td>{sumar_nut("vit_a")}</td><td>{sumar_nut("vit_c")}</td><td>{sumar_nut("vit_d")}</td><td>{sumar_nut("ca")}</td><td>{sumar_nut("fe")}</td><td>{sumar_nut("sal")}</td>
+        </tr>
+        <tr>
+            <td class="cena">cena</td>
+            <td class="cena" colspan="5"></td>
+        </tr>
+        <tr>
+            <td class="cena"></td>
+            <td class="cena" colspan="5"></td>
+        </tr>
+        '''
+
+        dias_procesados += 1
+        if dias_procesados >= 25:  # Evitar bucles infinitos
+            break
+
+    # Pie de página
+    html += '''
     </table>
+    <br><br>
+    <div style="font-size: 12pt; font-family: Arial;">
+    Valorado nutricionalmente por Leticia Montoiro Peinado, Diplomada en Nutrición Humana y Dietética. Nº Colegiada CYL00207<br>
+    La fruta podrá variar en función de su grado de madurez. Valoración nutricional en base a niños de 6-9 años.<br>
+    Para cualquier consulta del menú o información de alérgenos, puedes enviar un correo a nuestra nutricionista a: nutricion@cofuri.es<br>
+    * Las recetas elaboradas llevan excluidos los alimentos arriba detallados.
+    </div>
     </body>
     </html>
-    """
+    '''
 
     return Response(
         html,
         mimetype="application/vnd.ms-excel",
-        headers={"Content-Disposition": f"attachment;filename=menu_{colegio}_{mes}_{anio}.xls"}
+        headers={"Content-Disposition": f"attachment;filename=menu_escolar_{colegio.replace(' ', '_')}_{mes}_{anio}.xls"}
     )
+
+def clasificar_platos_dict():
+    """Versión de clasificar_platos para uso en backend"""
+    primeros = [p for p in PLATOS if p["archivo"].startswith("PR.")]
+    segundos = [p for p in PLATOS if p["archivo"].startswith("PO.")]
+    acompanamientos = [p for p in PLATOS if p["archivo"].startswith("AC.")]
+    postres = [p for p in PLATOS if p["archivo"].startswith("DE.")]
+    panes = [p for p in PLATOS if p["archivo"].startswith("PA.")]
+    return {
+        "primeros": primeros,
+        "segundos": segundos,
+        "acompanamientos": acompanamientos,
+        "postres": postres,
+        "panes": panes
+    }
+    def traducir_al_ingles(texto):
+    if not texto:
+        return ""
+    traducciones = {
+        "Lentejas": "Lentils", "Alubias": "Beans", "Sopa": "Soup", "Crema": "Cream", "Pasta": "Pasta",
+        "Guiso": "Stew", "Puré": "Mash", "Verduras": "Vegetables", "Pollo": "Chicken", "Pescado": "Fish",
+        "Carne": "Meat", "Jamón": "Ham", "Chorizo": "Chorizo", "Morcilla": "Blood sausage", "Merluza": "Hake",
+        "Bacalao": "Cod", "Salmón": "Salmon", "Atún": "Tuna", "Sardinas": "Sardines", "Patata": "Potato",
+        "Zanahoria": "Carrot", "Cebolla": "Onion", "Tomate": "Tomato", "Pimiento": "Pepper", "Calabacín": "Zucchini",
+        "Espinacas": "Spinach", "Acelgas": "Chard", "Judías verdes": "Green beans", "Brócoli": "Broccoli",
+        "Coliflor": "Cauliflower", "Lechuga": "Lettuce", "Puerro": "Leek", "Apio": "Celery", "Remolacha": "Beetroot",
+        "Champiñón": "Mushroom", "Ajo": "Garlic", "Guisantes": "Peas", "Maíz": "Corn", "Manzana": "Apple",
+        "Pera": "Pear", "Plátano": "Banana", "Naranja": "Orange", "Mandarina": "Tangerine", "Uva": "Grape",
+        "Melón": "Melon", "Sandía": "Watermelon", "Fresa": "Strawberry", "Kiwi": "Kiwi", "Piña": "Pineapple",
+        "Melocotón": "Peach", "Ciruela": "Plum", "Higo": "Fig", "Aguacate": "Avocado", "Leche": "Milk",
+        "Yogur": "Yogurt", "Queso fresco": "Fresh cheese", "Requesón": "Cottage cheese", "Huevo": "Egg",
+        "Gelatina": "Gelatin", "Flan": "Flan", "Natillas": "Custard", "Pan": "Bread", "Agua": "Water"
+    }
+    for es, en in traducciones.items():
+        if es in texto:
+            texto = texto.replace(es, en)
+    return texto
 # ==============================
 # INICIAR APP
 # ==============================
