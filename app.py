@@ -4,15 +4,11 @@ import csv
 from openpyxl import load_workbook
 import unicodedata
 from datetime import datetime
-from openpyxl.styles import Font, PatternFill, Alignment
 
 app = Flask(__name__)
 PLATOS = []
 BASE_NUTRICIONAL = {}
 
-# ==============================
-# CARGAR BASE NUTRICIONAL
-# ==============================
 def cargar_base_nutricional():
     global BASE_NUTRICIONAL
     ruta = "ingredientes.csv"
@@ -50,47 +46,21 @@ def cargar_base_nutricional():
 def normalizar_texto(texto):
     if not texto:
         return ""
-    texto = texto.lower().strip()
+    texto = texto.strip()
     texto = unicodedata.normalize('NFD', texto)
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
-    return texto.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    return texto.upper()
 
 def buscar_ingrediente(nombre_ing):
     nombre_norm = normalizar_texto(nombre_ing)
     if not nombre_norm:
-        return BASE_NUTRICIONAL.get("agua", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
+        return BASE_NUTRICIONAL.get("AGUA", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
 
-    # 1. Coincidencia exacta
     if nombre_norm in BASE_NUTRICIONAL:
         return BASE_NUTRICIONAL[nombre_norm]
 
-    # 2. Buscar por palabras clave (más robusto)
-    palabras_ing = set(nombre_norm.split())
-    mejor_coincidencia = None
-    max_coincidencias = 0
-
-    for clave_norm, nut in BASE_NUTRICIONAL.items():
-        palabras_clave = set(clave_norm.split())
-        coincidencias = len(palabras_ing & palabras_clave)  # intersección
-        
-        # También buscar subcadenas de al menos 3 letras
-        for palabra in palabras_ing:
-            if len(palabra) >= 3:
-                for palabra_clave in palabras_clave:
-                    if palabra in palabra_clave or palabra_clave in palabra:
-                        coincidencias += 1
-        
-        if coincidencias > max_coincidencias:
-            max_coincidencias = coincidencias
-            mejor_coincidencia = nut
-
-    if mejor_coincidencia and max_coincidencias >= 1:
-        print(f"🔍 Coincidencia por palabras: '{nombre_ing}' → '{mejor_coincidencia}' ({max_coincidencias} coincidencias)")
-        return mejor_coincidencia
-
-    # 3. Último recurso: usar "agua"
-    print(f"⚠️ Ingrediente no encontrado, usando 'agua': '{nombre_ing}'")
-    return BASE_NUTRICIONAL.get("agua", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
+    print(f"⚠️ Ingrediente no encontrado: '{nombre_ing}' → usando 'AGUA'")
+    return BASE_NUTRICIONAL.get("AGUA", {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0})
 
 def calcular_nutricion_plato(ingredientes_gramaje):
     total = {"kcal": 0, "lip": 0, "ags": 0, "prot": 0, "hdec": 0, "azucares": 0, "vit_a": 0, "vit_c": 0, "vit_d": 0, "ca": 0, "fe": 0, "sal": 0}
@@ -160,9 +130,43 @@ def cargar_platos():
             except Exception as e:
                 print(f"❌ Error al cargar {filename}: {e}")
 
-# ==============================
-# RUTA PARA EXPORTAR USANDO PLANTILLA
-# ==============================
+def clasificar_platos_dict():
+    primeros = [p for p in PLATOS if p["archivo"].startswith("PR.")]
+    segundos = [p for p in PLATOS if p["archivo"].startswith("PO.")]
+    acompanamientos = [p for p in PLATOS if p["archivo"].startswith("AC.")]
+    postres = [p for p in PLATOS if p["archivo"].startswith("DE.")]
+    panes = [p for p in PLATOS if p["archivo"].startswith("PA.")]
+    return {
+        "primeros": primeros,
+        "segundos": segundos,
+        "acompanamientos": acompanamientos,
+        "postres": postres,
+        "panes": panes
+    }
+
+def traducir_al_ingles(texto):
+    if not texto:
+        return ""
+    traducciones = {
+        "LENTEJAS": "Lentils", "ALUBIAS": "Beans", "SOPA": "Soup", "CREMA": "Cream", "PASTA": "Pasta",
+        "GUISO": "Stew", "PURÉ": "Mash", "VERDURAS": "Vegetables", "POLLO": "Chicken", "PESCADO": "Fish",
+        "CARNE": "Meat", "JAMÓN": "Ham", "CHORIZO": "Chorizo", "MORCILLA": "Blood sausage", "MERLUZA": "Hake",
+        "BACALAO": "Cod", "SALMÓN": "Salmon", "ATÚN": "Tuna", "SARDINAS": "Sardines", "PATATA": "Potato",
+        "ZANAHORIA": "Carrot", "CEBOLLA": "Onion", "TOMATE": "Tomato", "PIMIENTO": "Pepper", "CALABACÍN": "Zucchini",
+        "ESPINACAS": "Spinach", "ACELGAS": "Chard", "JUDÍAS VERDES": "Green beans", "BRÓCOLI": "Broccoli",
+        "COLIFLOR": "Cauliflower", "LECHUGA": "Lettuce", "PUERRO": "Leek", "APIO": "Celery", "REMOLACHA": "Beetroot",
+        "CHAMPINÓN": "Mushroom", "AJO": "Garlic", "GUISANTES": "Peas", "MAÍZ": "Corn", "MANZANA": "Apple",
+        "PERA": "Pear", "PLÁTANO": "Banana", "NARANJA": "Orange", "MANDARINA": "Tangerine", "UVA": "Grape",
+        "MELÓN": "Melon", "SANDÍA": "Watermelon", "FRESA": "Strawberry", "KIWI": "Kiwi", "PIÑA": "Pineapple",
+        "MELOCOTÓN": "Peach", "CIRUELA": "Plum", "HIGO": "Fig", "AGUACATE": "Avocado", "LECHE": "Milk",
+        "YOGUR": "Yogurt", "QUESO FRESCO": "Fresh cheese", "REQUESÓN": "Cottage cheese", "HUEVO": "Egg",
+        "GELATINA": "Gelatin", "FLAN": "Flan", "NATILLAS": "Custard", "PAN": "Bread", "AGUA": "Water"
+    }
+    for es, en in traducciones.items():
+        if es in texto:
+            texto = texto.replace(es, en)
+    return texto
+
 @app.route("/api/exportar", methods=["POST"])
 def exportar_menu():
     data = request.json
@@ -174,14 +178,13 @@ def exportar_menu():
     if not colegio or not menu_datos:
         return jsonify({"error": "Faltan datos"}), 400
 
-    # Obtener listas de platos
-platos_dict = clasificar_platos_dict()
-primeros = platos_dict["primeros"]
-segundos = platos_dict["segundos"]
-acompanamientos = platos_dict["acompanamientos"]
-postres = platos_dict["postres"]
-panes = platos_dict["panes"]
-todos_platos = primeros + segundos + acompanamientos + postres + panes
+    platos_dict = clasificar_platos_dict()
+    primeros = platos_dict["primeros"]
+    segundos = platos_dict["segundos"]
+    acompanamientos = platos_dict["acompanamientos"]
+    postres = platos_dict["postres"]
+    panes = platos_dict["panes"]
+    todos_platos = primeros + segundos + acompanamientos + postres + panes
 
     def get_plato(nombre):
         for p in todos_platos:
@@ -189,7 +192,6 @@ todos_platos = primeros + segundos + acompanamientos + postres + panes
                 return p
         return None
 
-    # Iniciar HTML con soporte para Excel
     html = '''<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" 
       xmlns:x="urn:schemas-microsoft-com:office:excel" 
@@ -199,41 +201,11 @@ todos_platos = primeros + segundos + acompanamientos + postres + panes
 <style>
 body { font-family: Arial; }
 table { border-collapse: collapse; width: 100%; }
-td, th { 
-    border: 1px solid #000; 
-    padding: 4px; 
-    font-size: 11pt;
-    height: 20px;
-}
-.encabezado { 
-    font-family: "Very Simple Chalk"; 
-    font-size: 22pt; 
-    color: #385724; 
-    text-align: center;
-    height: 30px;
-}
-.celda-combinada {
-    text-align: center;
-    vertical-align: middle;
-    font-size: 16pt;
-    height: 25px;
-}
-.cena { 
-    background-color: #ffcc99; 
-}
-.rotado { 
-    writing-mode: tb-rl; 
-    text-align: center; 
-    vertical-align: middle;
-    height: 100px;
-    width: 20px;
-}
-.columna-dia { 
-    width: 20px; 
-    text-align: center; 
-    vertical-align: middle;
-    font-size: 12pt;
-}
+td, th { border: 1px solid #000; padding: 4px; font-size: 11pt; height: 20px; }
+.encabezado { font-family: "Very Simple Chalk"; font-size: 22pt; color: #385724; text-align: center; height: 30px; }
+.celda-combinada { text-align: center; vertical-align: middle; font-size: 16pt; height: 25px; }
+.cena { background-color: #ffcc99; }
+.columna-dia { width: 20px; text-align: center; vertical-align: middle; font-size: 12pt; }
 </style>
 <!--[if gte mso 9]><xml>
 <x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
@@ -254,7 +226,6 @@ td, th {
 </tr>
 '''
 
-    # Generar filas por día
     dias_procesados = 0
     for fecha_str, menu in menu_datos.items():
         if not any([menu.get("primer"), menu.get("segundo"), menu.get("postre")]):
@@ -269,14 +240,12 @@ td, th {
         if dia_semana not in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie']:
             continue
 
-        # Obtener platos
         p1 = get_plato(menu.get("primer", ""))
         p2 = get_plato(menu.get("segundo", ""))
         pA = get_plato(menu.get("acompanamiento", ""))
         p3 = get_plato(menu.get("postre", ""))
         pPan = get_plato(menu.get("pan", ""))
 
-        # Calcular nutrición
         def get_nut(plato):
             return plato["nutricion"] if plato else {"kcal":0,"lip":0,"ags":0,"prot":0,"hdec":0,"azucares":0,"vit_a":0,"vit_c":0,"vit_d":0,"ca":0,"fe":0,"sal":0}
 
@@ -285,7 +254,6 @@ td, th {
         def sumar_nut(clave):
             return round(nut1[clave] + nut2[clave] + nutA[clave] + nut3[clave] + nutPan[clave], 1)
 
-        # Construir filas del día
         html += f'''
         <tr>
             <td class="columna-dia" rowspan="13">{fecha.day}</td>
@@ -320,10 +288,9 @@ td, th {
         '''
 
         dias_procesados += 1
-        if dias_procesados >= 25:  # Evitar bucles infinitos
+        if dias_procesados >= 25:
             break
 
-    # Pie de página
     html += '''
     </table>
     <br><br>
@@ -342,48 +309,6 @@ td, th {
         mimetype="application/vnd.ms-excel",
         headers={"Content-Disposition": f"attachment;filename=menu_escolar_{colegio.replace(' ', '_')}_{mes}_{anio}.xls"}
     )
-
-def clasificar_platos_dict():
-    """Versión de clasificar_platos para uso en backend"""
-    primeros = [p for p in PLATOS if p["archivo"].startswith("PR.")]
-    segundos = [p for p in PLATOS if p["archivo"].startswith("PO.")]
-    acompanamientos = [p for p in PLATOS if p["archivo"].startswith("AC.")]
-    postres = [p for p in PLATOS if p["archivo"].startswith("DE.")]
-    panes = [p for p in PLATOS if p["archivo"].startswith("PA.")]
-    return {
-        "primeros": primeros,
-        "segundos": segundos,
-        "acompanamientos": acompanamientos,
-        "postres": postres,
-        "panes": panes
-    }
-    def traducir_al_ingles(texto):
-    if not texto:
-        return ""
-    traducciones = {
-        "Lentejas": "Lentils", "Alubias": "Beans", "Sopa": "Soup", "Crema": "Cream", "Pasta": "Pasta",
-        "Guiso": "Stew", "Puré": "Mash", "Verduras": "Vegetables", "Pollo": "Chicken", "Pescado": "Fish",
-        "Carne": "Meat", "Jamón": "Ham", "Chorizo": "Chorizo", "Morcilla": "Blood sausage", "Merluza": "Hake",
-        "Bacalao": "Cod", "Salmón": "Salmon", "Atún": "Tuna", "Sardinas": "Sardines", "Patata": "Potato",
-        "Zanahoria": "Carrot", "Cebolla": "Onion", "Tomate": "Tomato", "Pimiento": "Pepper", "Calabacín": "Zucchini",
-        "Espinacas": "Spinach", "Acelgas": "Chard", "Judías verdes": "Green beans", "Brócoli": "Broccoli",
-        "Coliflor": "Cauliflower", "Lechuga": "Lettuce", "Puerro": "Leek", "Apio": "Celery", "Remolacha": "Beetroot",
-        "Champiñón": "Mushroom", "Ajo": "Garlic", "Guisantes": "Peas", "Maíz": "Corn", "Manzana": "Apple",
-        "Pera": "Pear", "Plátano": "Banana", "Naranja": "Orange", "Mandarina": "Tangerine", "Uva": "Grape",
-        "Melón": "Melon", "Sandía": "Watermelon", "Fresa": "Strawberry", "Kiwi": "Kiwi", "Piña": "Pineapple",
-        "Melocotón": "Peach", "Ciruela": "Plum", "Higo": "Fig", "Aguacate": "Avocado", "Leche": "Milk",
-        "Yogur": "Yogurt", "Queso fresco": "Fresh cheese", "Requesón": "Cottage cheese", "Huevo": "Egg",
-        "Gelatina": "Gelatin", "Flan": "Flan", "Natillas": "Custard", "Pan": "Bread", "Agua": "Water"
-    }
-    for es, en in traducciones.items():
-        if es in texto:
-            texto = texto.replace(es, en)
-    return texto
-# ==============================
-# INICIAR APP
-# ==============================
-cargar_base_nutricional()
-cargar_platos()
 
 @app.route("/")
 def home():
