@@ -77,58 +77,110 @@ def calcular_nutricion_plato(ingredientes_gramaje):
     return total
 
 def leer_ficha_tecnica(ruta_excel):
-    wb = load_workbook(ruta_excel, data_only=True)
-    ws = wb.active
+    try:
+        wb = load_workbook(ruta_excel, data_only=True)
+        ws = wb.active
 
-    nombre = str(ws["A7"].value).strip() if ws["A7"].value else ""
-    ingredientes = str(ws["A10"].value).strip() if ws["A10"].value else ""
+        # Nombre del plato (A7)
+        nombre = ""
+        try:
+            if ws["A7"].value is not None:
+                nombre = str(ws["A7"].value).strip()
+        except Exception as e:
+            print(f"⚠️ Error al leer A7 en {ruta_excel}: {e}")
 
-    alergenos = []
-    alergenos_col1 = ["Gluten", "Crustáceos", "Huevos", "Pescado", "Cacahuetes", "Soja", "Leche", "Legumbres", "Guisantes"]
-    for i, nombre_alerg in enumerate(alergenos_col1, start=12):
-        if ws[f"F{i}"].value == "X":
-            alergenos.append(nombre_alerg)
+        # Composición / ingredientes (A10)
+        ingredientes = ""
+        try:
+            if ws["A10"].value is not None:
+                ingredientes = str(ws["A10"].value).strip()
+        except Exception as e:
+            print(f"⚠️ Error al leer A10 en {ruta_excel}: {e}")
 
-    alergenos_col2 = ["Frutos de cáscara", "Apio", "Mostaza", "Sésamo", "Sulfuroso", "Altramuces", "Moluscos", "Cerdo", "Otros"]
-    for i, nombre_alerg in enumerate(alergenos_col2, start=12):
-        if ws[f"K{i}"].value == "X":
-            alergenos.append(nombre_alerg)
-
-    ingredientes_gramaje = []
-    for fila in range(35, 44):
-        nombre_ing = ws[f"E{fila}"].value
-        gramos = ws[f"H{fila}"].value
-        if nombre_ing and gramos is not None:
+        # Alérgenos – columna 1 (F12:F20)
+        alergenos = []
+        alergenos_col1 = ["Gluten", "Crustáceos", "Huevos", "Pescado", "Cacahuetes", "Soja", "Leche", "Legumbres", "Guisantes"]
+        for i, nombre_alerg in enumerate(alergenos_col1, start=12):
             try:
-                gramos = float(gramos)
-                ingredientes_gramaje.append({"nombre": str(nombre_ing).strip(), "gramos": gramos})
-            except (ValueError, TypeError):
-                pass
+                if ws[f"F{i}"].value == "X":
+                    alergenos.append(nombre_alerg)
+            except Exception as e:
+                print(f"⚠️ Error al leer F{i} en {ruta_excel}: {e}")
 
-    gramos_racion = float(ws["H44"].value) if isinstance(ws["H44"].value, (int, float)) else sum(item["gramos"] for item in ingredientes_gramaje)
-    nutricion = calcular_nutricion_plato(ingredientes_gramaje)
+        # Alérgenos – columna 2 (K12:K20)
+        alergenos_col2 = ["Frutos de cáscara", "Apio", "Mostaza", "Sésamo", "Sulfuroso", "Altramuces", "Moluscos", "Cerdo", "Otros"]
+        for i, nombre_alerg in enumerate(alergenos_col2, start=12):
+            try:
+                if ws[f"K{i}"].value == "X":
+                    alergenos.append(nombre_alerg)
+            except Exception as e:
+                print(f"⚠️ Error al leer K{i} en {ruta_excel}: {e}")
 
-    return {
-        "nombre": nombre,
-        "ingredientes": ingredientes,
-        "alergenos": alergenos,
-        "ingredientes_gramaje": ingredientes_gramaje,
-        "gramos_racion": gramos_racion,
-        "nutricion": nutricion,
-        "archivo": os.path.basename(ruta_excel)
-    }
+        # Ingredientes con gramaje (E35:E43 = nombre, H35:H43 = gramos)
+        ingredientes_gramaje = []
+        for fila in range(35, 44):
+            try:
+                nombre_ing = ws[f"E{fila}"].value
+                gramos = ws[f"H{fila}"].value
+                if nombre_ing and gramos is not None:
+                    try:
+                        gramos = float(gramos)
+                        ingredientes_gramaje.append({
+                            "nombre": str(nombre_ing).strip(),
+                            "gramos": gramos
+                        })
+                    except (ValueError, TypeError):
+                        pass
+            except Exception as e:
+                print(f"⚠️ Error al leer fila {fila} en {ruta_excel}: {e}")
+
+        # Gramaje total (H44)
+        gramos_racion = 0.0
+        try:
+            if ws["H44"].value is not None:
+                gramos_racion = float(ws["H44"].value)
+        except (ValueError, TypeError):
+            gramos_racion = sum(item["gramos"] for item in ingredientes_gramaje)
+
+        # Calcular nutrición
+        nutricion = calcular_nutricion_plato(ingredientes_gramaje)
+
+        return {
+            "nombre": nombre,
+            "ingredientes": ingredientes,
+            "alergenos": alergenos,
+            "ingredientes_gramaje": ingredientes_gramaje,
+            "gramos_racion": gramos_racion,
+            "nutricion": nutricion,
+            "archivo": os.path.basename(ruta_excel)
+        }
+
+    except Exception as e:
+        print(f"🚨 Error crítico al procesar {ruta_excel}: {str(e)}")
+        raise
 
 def cargar_platos():
     global PLATOS
     PLATOS = []
-    for filename in os.listdir("."):
-        if filename.endswith(".xlsx") and filename != "plantilla_menu.xlsx":
-            try:
-                plato = leer_ficha_tecnica(filename)
-                PLATOS.append(plato)
-                print(f"✅ Cargado: {filename}")
-            except Exception as e:
-                print(f"❌ Error al cargar {filename}: {e}")
+    try:
+        todos_archivos = os.listdir(".")
+        print(f"🔍 Archivos encontrados: {[f for f in todos_archivos if f.endswith('.xlsx')]}")
+        
+        for filename in todos_archivos:
+            if filename.endswith(".xlsx") and filename != "plantilla_menu.xlsx":
+                try:
+                    plato = leer_ficha_tecnica(filename)
+                    plato["archivo"] = filename
+                    PLATOS.append(plato)
+                    print(f"✅ Cargado: {filename}")
+                except Exception as e:
+                    print(f"❌ Error al procesar {filename}: {str(e)}")
+                    # Continuar con el siguiente archivo, no detenerse
+                    continue
+        
+        print(f"📊 Total de platos cargados: {len(PLATOS)}")
+    except Exception as e:
+        print(f"💥 Error grave al listar archivos: {str(e)}")
 
 def clasificar_platos_dict():
     primeros = [p for p in PLATOS if p["archivo"].startswith("PR.")]
