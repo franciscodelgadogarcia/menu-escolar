@@ -175,8 +175,13 @@ def exportar_menu():
         return jsonify({"error": "Faltan datos"}), 400
 
     # Obtener listas de platos
-    { primeros, segundos, acompanamientos, postres, panes } = clasificar_platos_dict()
-    todos_platos = primeros + segundos + acompanamientos + postres + panes
+platos_dict = clasificar_platos_dict()
+primeros = platos_dict["primeros"]
+segundos = platos_dict["segundos"]
+acompanamientos = platos_dict["acompanamientos"]
+postres = platos_dict["postres"]
+panes = platos_dict["panes"]
+todos_platos = primeros + segundos + acompanamientos + postres + panes
 
     def get_plato(nombre):
         for p in todos_platos:
